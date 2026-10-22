@@ -1,13 +1,21 @@
--- ============================================================
--- TPC CHURCH APP — INITIAL SCHEMA
--- ============================================================
+-- ===============================================================
+-- 20261021194959_initial_schema.sql
+-- Defines the original church records, relationships, and policies.
+-- Later security changes belong in a new migration so an existing
+-- database can receive the same reviewed changes as a fresh one.
+-- ===============================================================
 
--- 1. ENUMS
+-- ===============================================================
+-- SHARED STATUS AND ROLE TYPES
+-- ===============================================================
 CREATE TYPE user_role AS ENUM ('member', 'usher', 'finance', 'pastor', 'super_admin');
 CREATE TYPE attendance_method AS ENUM ('qr', 'manual');
 CREATE TYPE offering_status AS ENUM ('pending', 'successful', 'failed', 'refunded');
 
--- 2. TABLES
+-- ===============================================================
+-- APPLICATION TABLES
+-- Keep member, attendance, and financial records separate.
+-- ===============================================================
 
 CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -99,7 +107,11 @@ CREATE TABLE webhook_events (
     processed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. ROW LEVEL SECURITY
+-- ===============================================================
+-- ROW LEVEL SECURITY AND ROLE LOOKUP
+-- RLS restricts rows; column privileges and trusted operations must
+-- separately protect sensitive fields and state transitions.
+-- ===============================================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
@@ -121,7 +133,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. RLS POLICIES
+-- ===============================================================
+-- ORIGINAL ACCESS POLICIES
+-- The follow-up hardening migration replaces unsafe write access.
+-- ===============================================================
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT USING (has_role('super_admin') OR has_role('pastor'));
