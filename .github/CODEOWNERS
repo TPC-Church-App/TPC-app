@@ -1,0 +1,5 @@
+# Default: every PR needs a review from Ire
+*   @Your-Boy-Josiah
+
+# But John is also a required reviewer for backend changes
+/supabase/   @Your-Boy-Josiah @JohnDev-404
