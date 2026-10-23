@@ -30,4 +30,4 @@ RLS is enabled on all tables. Access is controlled by the `role` column in the `
 | **Super Admin** | Full access, manage roles and settings |
 
 ## Webhook Security
-Paystack webhooks are verified using HMAC SHA512 signature checks in the `paystack-webhook` Edge Function. Duplicate events are ignored via the `webhook_events` table.  
+Paystack webhooks are verified using HMAC SHA512 signature checks in the `paystack-webhook` Edge Function. Duplicate events are ignored via the `webhook_events` table.   
