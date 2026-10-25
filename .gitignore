@@ -101,4 +101,4 @@ apps/mobile/ios/
 # MISCELLANEOUS
 # ==================================================
 *.bak
-*.tmpdeno.lock
+*.tmp
