@@ -1,5 +1,5 @@
-# Default: every PR needs a review from Ire
+# Default review owner. Required reviews depend on repository rules.
 *   @Your-Boy-Josiah
 
-# But John is also a required reviewer for backend changes
+# Backend review owners. This entry does not require both approvals.
 /supabase/   @Your-Boy-Josiah @JohnDev-404
