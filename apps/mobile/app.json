@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "TPC",
+    "slug": "tpc-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "tpc",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
