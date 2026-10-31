@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import BrandedLoader from '@/components/branded-loader';
 import {
   DEFAULT_PHONE_COUNTRY,
   PHONE_COUNTRIES,
@@ -29,6 +30,7 @@ import {
 } from '@/constants/countries';
 import { colors } from '@/constants/theme';
 import { formatPhoneInput, validatePhoneInput } from '@/utils/phone';
+import { useDemoTransition } from '@/utils/use-demo-transition';
 
 // ===============================================================
 // LOCAL TYPES AND KEYBOARD IDENTIFIER
@@ -52,6 +54,7 @@ export default function LoginScreen() {
   const [country, setCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [feedback, setFeedback] = useState<ContactFeedback | null>(null);
+  const { phase, busy, start } = useDemoTransition();
 
   const isPhone = method === 'phone';
   const selectedCountry = PHONE_COUNTRIES.find(
@@ -108,8 +111,18 @@ export default function LoginScreen() {
   // ===============================================================
 
   function validateContact() {
+    if (busy) return;
+
     Keyboard.dismiss();
     setCountryPickerOpen(false);
+
+    if (!__DEV__) {
+      setFeedback({
+        valid: false,
+        message: 'Contact verification is not connected in this build.',
+      });
+      return;
+    }
 
     if (isPhone) {
       const result = validatePhoneInput(contact, country);
@@ -158,9 +171,8 @@ export default function LoginScreen() {
     }
 
     setFeedback(null);
-    // Frontend preview only. Real navigation will follow a successful
-    // OTP request when Supabase Auth is connected.
-    router.push('/(auth)/otp');
+    // Demonstrate the loading and success states without sending an OTP.
+    start(() => router.push('/(auth)/otp'));
   }
 
   return (
@@ -295,6 +307,8 @@ export default function LoginScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={validateContact}
+            disabled={busy}
+            accessibilityState={{ disabled: busy }}
             style={({ pressed }) => [
               styles.enterButton,
               pressed && styles.enterButtonPressed,
@@ -337,6 +351,15 @@ export default function LoginScreen() {
           </View>
         </InputAccessoryView>
       )}
+      <BrandedLoader
+        visible={phase !== 'idle'}
+        success={phase === 'success'}
+        label={
+          phase === 'success'
+            ? 'Demo ready — no code has been sent'
+            : 'Preparing verification preview…'
+        }
+      />
     </SafeAreaView>
   );
 }

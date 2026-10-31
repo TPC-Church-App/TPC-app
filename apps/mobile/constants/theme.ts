@@ -16,4 +16,5 @@ export const colors = {
   decorativeBorder: '#EADCC4',
   link: '#806019',
   error: '#A12622',
+  success: '#236B41',
 } as const;

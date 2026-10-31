@@ -4,9 +4,9 @@ Member participation, giving and church communication for The Pentecostal Congre
 
 TPC Church App comprises a member mobile application and a planned web dashboard for authorized church staff.
 
-**Current stage:** Mobile frontend foundation with partial backend data and payment implementation.
+**Current stage:** Member frontend demo milestone; backend integration and release verification remain separate work.
 
-**Working mobile interface:** Branded opening screen, phone/email entry, country selection, phone formatting, contact validation and a verification-code preview.
+**Working mobile interface:** Branded onboarding and demo OTP; Home, editable/saved device Profile and photos, department review outcomes, Settings, Messages/Notifications, Sermons/player, Community badges and both sponsor invitation types, worker schedules, attendance scanner/history/witness/offline queue, and demo checkout/return/payment history/receipts.
 
 **Authentication status:** Supabase Auth integration pending. The application does not send OTP codes or create authenticated sessions.
 
@@ -27,7 +27,7 @@ Design references are incomplete templates. Missing screens and behaviours still
 
 | Area               | Technology                                         | Current state                                                                        |
 | ------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Member application | React Native, Expo SDK 57, Expo Router, TypeScript | Runnable frontend foundation                                                         |
+| Member application | React Native, Expo SDK 58, Expo Router, TypeScript | Runnable frontend previews; live authentication and payments pending                 |
 | Country selector   | @react-native-picker/picker                        | 28-country selector; wheel interface on iPhone                                       |
 | Phone handling     | libphonenumber-js                                  | Country-aware formatting and numbering-pattern validation                            |
 | Staff dashboard    | Planned Next.js App Router                         | Comment-only placeholders; package initialization pending                            |
@@ -51,13 +51,25 @@ TPC-app/
 │   │   ├── app/
 │   │   │   ├── _layout.tsx
 │   │   │   ├── index.tsx
-│   │   │   └── (auth)/
-│   │   │       ├── login.tsx
-│   │   │       └── otp.tsx
+│   │   │   ├── (auth)/
+│   │   │   │   ├── register.tsx
+│   │   │   │   ├── login.tsx
+│   │   │   │   └── otp.tsx
+│   │   │   └── (tabs)/
+│   │   │       ├── _layout.tsx
+│   │   │       ├── home.tsx
+│   │   │       ├── profile.tsx
+│   │   │       ├── giving.tsx
+│   │   │       ├── history.tsx
+│   │   │       ├── attendance.tsx
+│   │   │       ├── scanner.tsx
+│   │   │       ├── settings.tsx / messages.tsx
+│   │   │       ├── sermons.tsx / community.tsx
+│   │   │       ├── checkout.tsx / payment-return.tsx / receipt.tsx
+│   │   │       └── more.tsx
 │   │   ├── planned-routes/
 │   │   │   ├── (auth)/
-│   │   │   │   ├── _layout.tsx
-│   │   │   │   └── register.tsx
+│   │   │   │   └── _layout.tsx
 │   │   │   ├── (tabs)/
 │   │   │   ├── check-in/
 │   │   │   └── give/
@@ -132,7 +144,7 @@ Generated dependencies, Expo caches and Git internals are omitted.
 
 `.gitkeep` preserves empty directories. The presence of a directory or placeholder does not indicate a completed feature.
 
-The mobile application currently contains four active TSX files: three screens and one root layout. Seventeen inactive TSX placeholders remain in `planned-routes`. All fourteen admin TSX files remain comment-only placeholders.
+Active routes now cover the member demo journeys listed below. `planned-routes` contains older parked placeholders; those files are not discoverable application screens. The admin files remain placeholders.
 
 ## Mobile frontend
 
@@ -141,7 +153,7 @@ The mobile application currently contains four active TSX files: three screens a
 The current preview supports:
 
 - A branded opening screen with the church logo, cream/gold palette, tagline and Get started button.
-- Navigation from the opening screen to contact entry and verification preview.
+- Navigation from Get started to member details, contact and demo verification; returning users can choose Sign in.
 - Arrow-only back navigation on iPhone.
 - Switching between phone and email entry.
 - A 28-country phone selector, defaulting to Nigeria.
@@ -164,17 +176,25 @@ The country list contains Nigeria, Ghana, South Africa and 25 selected countries
 
 ### Verification preview boundaries
 
-The verification screen checks code format only.
+The development build accepts only the local demo code `123456` and opens a guarded Home preview. Its timed loader and green tick demonstrate interface states; they do not prove delivery, identity or a server response.
 
 - No SMS or email is sent.
 - No code is checked against Supabase.
-- Any six-digit input satisfies the local length check.
-- Incorrect-code, expired-code and genuine authentication-success responses are not implemented.
+- Incorrect local demo codes show an error. Expiry and genuine server authentication responses are not connected.
 - No session is created and no member is signed in.
 - Resend, cooldown, rate-limit and recovery behaviour remain pending.
 - Six digits currently follows the design reference; confirm it against the configured Auth provider before integration.
 
-Valid contact input opens the preview directly. Real navigation must eventually follow a successful OTP request.
+Valid contact input demonstrates loading, a demo-success tick and navigation to OTP entry. The correct demo code demonstrates loading and a tick before Home. These timed demonstrations run only in development and must be replaced during backend integration.
+
+#### Required server-confirmed loading and success behaviour
+
+- Before requesting a phone/email OTP, show the shared TPC loader. Do not show the green **code sent** tick or advance as though sending succeeded until the backend/provider confirms successful sending to the selected contact. A client-side format check, timer, or accepted request alone is not proof of delivery. If the provider distinguishes acceptance, sending and delivery, the backend contract and UI must preserve those distinctions.
+- After a member enters the OTP, show the loader while server verification is pending. Show the verification-success tick and open authenticated member pages only after the server confirms the correct code and the authenticated session is established. A six-digit value or the local demo code is not production verification.
+- Failed or expired codes and failed sending must show errors without a success tick. Offline queued attendance and pending department approval must remain pending until their respective server confirmations arrive.
+- Reuse the TPC loader for attendance QR validation and other actual waiting states. A loading indicator never grants access or proves payment success. Respect Reduce Motion and stop animations when the operation ends.
+
+Registration captures first name, surname and required age of at least four. Ordinary registration and authentication do not need usher/admin approval. Registration drafts populate the local Profile preview; returning sign-in previews initially show neutral details until the user explicitly loads the device demo profile or the future backend retrieves an authenticated profile. Profile details, native photo references and department demo outcomes can be explicitly saved on the device. Returning sign-in users must choose “Load saved device demo profile”; the app does not associate that profile with the entered phone/email. Department membership requires admin approval; head-of-department approval remains a proposal.
 
 Contact details are kept in screen-local state and are not passed through route URLs.
 
@@ -188,18 +208,18 @@ The branded opening screen runs inside the application. Native launch-screen bra
 
 ### Folder responsibilities
 
-| Folder            | Responsibility                                |
-| ----------------- | --------------------------------------------- |
-| app               | Implemented routes and navigation layouts     |
-| planned-routes    | Inactive placeholders awaiting implementation |
-| components/ui     | General reusable controls                     |
-| components/shared | Reusable TPC-specific interface components    |
-| constants         | Theme values and country choices              |
-| utils             | Phone formatting and validation helpers       |
-| hooks             | Reusable React behaviour when needed          |
-| services          | Future API and Supabase client integration    |
-| store             | Reserved for state shared across screens      |
-| assets            | Bundled images and future fonts/icons         |
+| Folder            | Responsibility                                  |
+| ----------------- | ----------------------------------------------- |
+| app               | Implemented routes and navigation layouts       |
+| planned-routes    | Inactive placeholders awaiting implementation   |
+| components/ui     | General reusable controls                       |
+| components/shared | Reusable TPC-specific interface components      |
+| constants         | Theme values and country choices                |
+| utils             | Phone formatting and validation helpers         |
+| hooks             | Reusable React behaviour when needed            |
+| services          | Device demo persistence and app photo handling  |
+| store             | Onboarding, attendance and saved demo workspace |
+| assets            | Bundled images and future fonts/icons           |
 
 Keep unfinished placeholders outside `app`; Expo Router discovers files inside that directory as routes.
 
@@ -245,6 +265,16 @@ These are requirements, not claims of completed implementation.
 - Do not require usher/admin approval for eligible-member witness confirmation.
 
 GPS radius, accuracy thresholds, clock trust, evidence retention, witness limits and related edge cases still require decisions.
+
+#### Attendance/check-in frontend demo
+
+Home and Attendance share one sample service schedule. The scanner recognises only the public demo pass and never follows scanned URLs. Camera permission and foreground location consent are explicit. Location refusal leaves a witness route or the choice to leave without attendance.
+
+Native attendance evidence and history persist in encrypted SecureStore chunks. The queue retains the scan timestamp, service snapshot and upload deadline. Web saves sample history but strips GPS coordinates; unuploaded GPS evidence needs a witness after web reload. No automatic upload or connectivity detection is claimed: sync and error buttons deliberately simulate server outcomes. The 24-hour deadline also applies to witnesses and retries.
+
+Witness screens allow only an eligible sample member who is verified and confirmed at the same service; no admin approval is required. Confirmed, rejected, expired and sync-error screens are demo outcomes. Production still needs signed service-specific QR passes, trusted server time, evidence assessment, eligibility/ownership checks, actual sync and durable server histories.
+
+Failed saved-data loading blocks new writes until retry succeeds or the member explicitly resets demo data. Reset uses a separate recovery path, including corrupted native metadata. The queue holds up to 30 records. “Start another sample service” creates a new service without deleting history. Settings can clear saved demo data. Pure rule tests cover time boundaries and transitions; the latest batch still needs the manual test/device checks in the handoff.
 
 ### Giving and staff operations
 
@@ -316,7 +346,15 @@ Initialization does not provide a client retry-idempotency contract. An uncertai
 
 Reconciliation, refunds, recovery and financial retention/anonymization remain unfinished. Restrictive foreign keys prevent accidental cascading deletion of financial records.
 
-No payment interface or complete live payment journey is implemented in the mobile app.
+### Giving and payment-history frontend
+
+Giving offers Offering, Tithes, Property giving, From the heart and a sample outreach campaign. Funds are fixtures, not administrator-managed data. Amounts use integer kobo. The receipt-email field validates the design but does not send mail or persist that contact.
+
+A reviewed gift creates an owned `DEMO-` checkout reference on this device. Checkout previews pending, ongoing, processing, queued, successful, failed, abandoned/cancelled and reversed outcomes. The return screen requires an explicit demo action; navigation parameters alone do not change payment state. Unknown references cannot create records. Terminal failures require a new checkout; replay cannot undo success, and a reversal removes receipt eligibility.
+
+Payment History is separate from Giving. It filters saved demo checkouts or opt-in sample illustrations by category and status. A demo receipt is available only for a successful saved demo checkout and states that it is not payment proof. The workspace holds up to 50 payment demos and 30 invitations.
+
+No Paystack checkout, live callback, payment verification, real history or financial receipt is connected. Those remain backend integration work. Proposed fund/campaign data requirements appear in the API contract; they do not claim an available endpoint.
 
 ## Local mobile development
 
@@ -406,12 +444,16 @@ Expo generates route types during development startup. Restart it after adding r
 
 ### Available scripts
 
-| Script    | Purpose                                   |
-| --------- | ----------------------------------------- |
-| start     | Start Expo development server             |
-| android   | Start Expo and request an Android preview |
-| web       | Start Expo and request a browser preview  |
-| typecheck | Run TypeScript with no compiled output    |
+| Script          | Purpose                                          |
+| --------------- | ------------------------------------------------ |
+| start           | Start Expo development server                    |
+| android         | Start Expo and request an Android preview        |
+| web             | Start Expo and request a browser preview         |
+| typecheck       | Run TypeScript with no compiled output           |
+| test            | Run all pure member-model/navigation tests       |
+| test:attendance | Run the original attendance rule tests           |
+| format          | Format source, services, tests and documentation |
+| format:check    | Verify formatting without changing files         |
 
 Formatting and formatting checks are configured through pinned Prettier.
 Linting, automated frontend interaction tests and CI remain unconfigured.
@@ -436,7 +478,9 @@ Do not log phone numbers, email addresses, OTP values, access tokens or secret k
 
 ## Verification record
 
-### Current milestone
+**Current batch:** the user reported passing Prettier format:check, TypeScript and the original 23 tests before the final functional fixes. The current source adds 18 recovery/lifecycle cases (41 total) and stronger name-limit assertions. The attached post-fix output confirms Prettier write/check, TypeScript and all 41 tests passed (0 failed/skipped). After the expo-asset peer was installed, Expo alignment and Doctor 20/20 passed; both iOS/web exports completed. The current audit reports eight findings (five low, three high) from Zod/deepmerge and remains unresolved. The user confirmed both iPhone and browser acceptance passed on 31 October 2026; these are manually reported results. The assistant has used library-based source formatting/syntax checks and has run no terminal commands. See [member demo handoff](docs/MEMBER-UI-HANDOFF.md) and [acceptance cases](docs/MEMBER-UI-TEST-PLAN.md). Earlier results below apply to earlier snapshots.
+
+### Historical foundation verification baseline
 
 Verification completed on 29 October 2026:
 
@@ -456,8 +500,10 @@ The iOS export contained a 2.8 MB Hermes bundle and the light church-logo asset.
 It is a local bundle export, not a signed application or deployment.
 
 Device checks are manually reported results, not automated interaction tests.
-The verification screen checks code format only. No OTP request, server
-verification or authenticated session has been implemented.
+The current verification screen checks the development-only demo code. No real OTP
+request, server verification or authenticated session has been implemented.
+The newer Giving and Payment History pages require their own formatting,
+TypeScript and device checks; the historical results above do not verify them.
 
 Known dependency security findings remain unresolved. Formatting, TypeScript,
 bundling and device checks do not establish production readiness.
@@ -517,7 +563,7 @@ Checked items indicate source implementation, repository preparation or explicit
 - [x] Implement the six-digit verification-code preview.
 - [x] Connect opening, login and verification navigation.
 - [x] Add iPhone keyboard-dismiss controls.
-- [x] Pass the current TypeScript check.
+- [x] Pass the foundation TypeScript check (historical snapshot; repeat for this batch).
 - [x] Receive user confirmation of the branded interface and country-selection experience.
 - [ ] Complete the final device regression cases in the verification record.
 - [ ] Run the current full iOS export.
@@ -561,28 +607,30 @@ Checked items indicate source implementation, repository preparation or explicit
 - [ ] Implement payment reconciliation and authorized refunds.
 - [ ] Agree financial retention, anonymization and deletion rules.
 
-### Remaining frontend scope
+### Member demo source and remaining frontend work
 
-- [ ] Initialize the admin package and framework configuration.
-- [ ] Configure shared packages when cross-application reuse is needed.
-- [ ] Evaluate a workspace/build pipeline when justified.
-- [ ] Map every confirmed release feature to routes and acceptance criteria.
-- [ ] Complete contact verification and profile-completion interfaces.
-- [ ] Implement authorized member management.
-- [ ] Implement service, attendance and witness interfaces.
-- [ ] Implement attendance history and live views.
-- [ ] Implement giving, checkout, callbacks and payment states.
-- [ ] Implement receipts and giving history.
-- [ ] Implement notifications, preferences and service reminders.
-- [ ] Implement badges and sponsor invitations.
-- [ ] Implement worker-roster approval interfaces.
-- [ ] Implement sermons and weekly church messages.
-- [ ] Implement staff dashboards, reports and CSV/PDF exports.
-- [ ] Implement authorized role, church and fund settings.
-- [ ] Cover loading, empty, denied, error, success and offline states.
-- [ ] Complete accessibility and supported-device verification.
-- [ ] Configure native launch branding, icons and distribution assets.
-- [ ] Implement and verify automatic dark-mode behaviour if retained in the final design.
+The checks in this subsection indicate source written, not tests passed.
+
+- [x] Correct shared service times, gold-card contrast, required-age wording, async photo/location lifecycle guards and menu routing.
+- [x] Build editable Profile, explicit saved device profile/photo controls and department pending/approved/rejected demos.
+- [x] Build Settings and saved notification preferences.
+- [x] Build announcement list/details, weekly messages and read/unread notification views.
+- [x] Build sample sermons, real controls over bundled test audio and session bookmarks.
+- [x] Build demo badges, newcomer invitations and financial-sponsorship request forms.
+- [x] Build sample worker availability responses and department schedules behind demo approval.
+- [x] Build attendance history, confirmed/rejected views, eligible-witness request/confirmation and persistent native queue/error/retry states.
+- [x] Build demo checkout, explicit return processing, all documented provider statuses, saved demo history and receipt eligibility.
+- [x] Add regression test source for payment ownership/replay, profile rules, witness eligibility, queue transitions and menu destinations.
+- [x] Correct name-limit consistency, blocked writes after loading failure, corrupt-storage recovery, schedule shortcut focus and async playback cancellation.
+- [x] Add recovery/lifecycle regression source, bringing the Node suite to 41 cases; execution of the final snapshot remains pending.
+- [x] Standardize frontend filename/purpose banners and meaningful section comments; clarify inactive parked routes.
+- [x] Install the new Expo modules and update the mobile lockfile (manifest/installed-module presence checked).
+- [ ] Run Prettier write/check, TypeScript, all 41 regression tests, Expo compatibility/doctor and iOS/web exports after the final fixes.
+- [x] Receive user confirmation that final iPhone and browser acceptance passed (31 October 2026; manually reported).
+- [ ] Review the full branch diff, commit/push manually and obtain partner review into `dev`.
+- [ ] Integrate real authentication, accounts, approvals, content, signed QRs, sync, payment checkout and receipts with agreed backend contracts.
+- [ ] Initialize and implement the separate staff dashboard, reports, member/service/fund administration and staff permission flows.
+- [ ] Verify production accessibility, performance, device permissions, native launch artwork and distribution; automatic dark mode remains unimplemented.
 
 ### Documentation, testing and release
 
@@ -610,19 +658,16 @@ Checked items indicate source implementation, repository preparation or explicit
 
 ### Open dependency security findings
 
-The latest user-supplied mobile audit reported eleven affected-package findings: five low and six high. This is an audit snapshot, not a fresh scan or eleven independent root advisories.
+Current evidence: user-run npm audit on 30 October 2026 reports eight affected-package findings (five low, three high). These propagate from two underlying advisories through the dependency tree. Expo compatibility, Doctor 20/20 and successful iOS/web exports do not resolve them.
 
-- [ ] SEC-01: Resolve or formally assess URL-decoder denial-of-service findings. Advisories: `GHSA-vcc3-ghjq-m6fr` and `GHSA-qr28-fpjm-wq7f`. Installed path: Expo Router -> query-string -> decode-uri-component@0.2.2. The current affected range includes 0.5.0. External-input reachability and compatible remediation remain unverified.
-- [ ] SEC-02: Resolve or formally assess `GHSA-mrhx-c7xc-m3w5`. Installed path: Expo CLI -> zod@3.25.76. Development-tool input exposure requires assessment.
-- [ ] SEC-03: Resolve or formally assess `GHSA-gcqx-w48m-w2h4`. Installed path: @expo/config -> deepmerge@4.3.1. Configuration-input exposure requires assessment.
+- [ ] SEC-02: Assess/remediate Zod memory exhaustion (GHSA-mrhx-c7xc-m3w5). Current path: Expo CLI → zod@3.25.76. The advisory lists 4.6.6 as patched, but the installed CLI requires ^3.25.76; a forced major override is not validated. Identify an Expo-compatible fix and assess input reachability.
+- [ ] SEC-03: Assess/remediate deepmerge prototype poisoning (GHSA-gcqx-w48m-w2h4). Current path: @expo/config → deepmerge@4.3.1. The advisory currently lists no patched version. Assess untrusted configuration inputs and reviewed remediation options.
 
-Security review baseline: 29 October 2026.
+Historical SEC-01 URL-decoder advisories from SDK 57 no longer appear in this supplied SDK 58 audit; they are not part of the current eight findings.
 
-These findings remain unresolved. Local UI development currently uses development data on a trusted network. Reassess exposure before external-link handling, real member data or live payments.
+The proposed forced audit fix would install Expo 51.0.39, downgrading the SDK 58 project. Preview ordinary compatible fixes with audit fix --dry-run; do not treat a forced framework downgrade or untested Zod major override as remediation.
 
-Before release, require validated fixes or a documented assessment and explicit acceptance of remaining risk. Expo dependency compatibility and successful type checking do not establish security.
-
-Do not use `npm audit fix --force` without reviewing the resulting framework changes and validating compatibility.
+Current evidence identifies Expo tooling dependency paths, not verified production exploitability or confirmed absence from shipped bundles. Keep demo development on trusted local infrastructure with synthetic data. Before release, require validated fixes or a documented exposure assessment and explicit acceptance of remaining risk. These findings remain open for partner review.
 
 ## Commenting conventions
 
@@ -643,7 +688,9 @@ Preserve useful generated configuration comments. Do not manually comment lockfi
 
 ## Contribution workflow
 
-The mobile-foundation work is on `chore/mobile-foundation`.
+Current milestone history: [MEMBER-UI-CHANGELOG.md](docs/MEMBER-UI-CHANGELOG.md). Copy-ready PR title/body: [PR-MEMBER-UI.md](docs/PR-MEMBER-UI.md). Replace its pending validation entries with actual results before submitting.
+
+The current member UI work is on `chore/member-home-ui`. The foundation milestone was already merged into `dev`.
 
 1. Inspect branch status and preserve outstanding work.
 2. Complete milestone checks and documentation.
@@ -657,7 +704,7 @@ The mobile-foundation work is on `chore/mobile-foundation`.
 10. Merge through the agreed repository process.
 11. Update the destination branch before starting the next work branch.
 
-Existing project guidance identifies `dev` as the integration branch. Confirm whether this milestone targets `dev` or `main` before preparing the pull request; do not assume they are interchangeable.
+The confirmed integration branch is `dev`; this repository workflow does not use `main`. Open this milestone’s pull request against `dev` and wait for the development partner’s review before merging or starting another branch.
 
 Remain on the current work branch until its agreed review and merge are complete.
 
@@ -679,6 +726,8 @@ Live streaming, chat/social features, full accounting/payroll, inventory and rep
 - [Database implementation notes](docs/DATABASE.md)
 - [Deployment preparation guide](docs/DEPLOYMENT.md)
 - [Supabase documentation](https://supabase.com/docs)
+- [Member UI handoff and manual commands](docs/MEMBER-UI-HANDOFF.md)
+- [Member UI acceptance cases](docs/MEMBER-UI-TEST-PLAN.md)
 - [Expo documentation](https://docs.expo.dev)
 - [React Native documentation](https://reactnative.dev)
 - [Next.js documentation](https://nextjs.org/docs)

@@ -1,9 +1,10 @@
 // ===============================================================
 // apps/mobile/app/(auth)/otp.tsx
-// Preview verification-code entry and local format validation.
-// No code is sent, verified with a server or stored persistently.
+// Check the development-only demo code and open the Home preview.
+// This screen does not perform real contact authentication.
 // ===============================================================
 
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   InputAccessoryView,
@@ -19,20 +20,31 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import BrandedLoader from '@/components/branded-loader';
 import { colors } from '@/constants/theme';
+import { useMemberDraft } from '@/store/member-draft';
+import { useDemoTransition } from '@/utils/use-demo-transition';
 
 const CODE_LENGTH = 6;
 const KEYBOARD_TOOLBAR_ID = 'verification-keyboard-toolbar';
 
 // ===============================================================
 // VERIFICATION PREVIEW
-// Validate the input shape without treating it as authentication.
+// Enable local preview access only in development mode.
 // ===============================================================
 
 export default function VerificationScreen() {
+  const { openDemo } = useMemberDraft();
+
   const [code, setCode] = useState('');
   const [feedback, setFeedback] = useState('');
   const [hasError, setHasError] = useState(false);
+  const { phase, busy, start } = useDemoTransition();
+
+  // ===============================================================
+  // CODE INPUT
+  // Accept up to six digits and clear outdated feedback on edits.
+  // ===============================================================
 
   function updateCode(value: string) {
     setCode(value.replace(/\D/g, '').slice(0, CODE_LENGTH));
@@ -40,8 +52,21 @@ export default function VerificationScreen() {
     setHasError(false);
   }
 
+  // ===============================================================
+  // DEVELOPMENT CODE CHECK
+  // Never use this local comparison as real authentication.
+  // ===============================================================
+
   function submitCode() {
+    if (busy) return;
+
     Keyboard.dismiss();
+
+    if (!__DEV__) {
+      setHasError(true);
+      setFeedback('Contact verification is not connected in this build.');
+      return;
+    }
 
     if (code.length !== CODE_LENGTH) {
       setHasError(true);
@@ -49,10 +74,19 @@ export default function VerificationScreen() {
       return;
     }
 
+    if (code !== '123456') {
+      setHasError(true);
+      setFeedback('Incorrect demo code. Use 123456.');
+      return;
+    }
+
     setHasError(false);
-    setFeedback(
-      'The code format is complete. Server verification is not connected yet.',
-    );
+    setFeedback('');
+    start(() => {
+      setCode('');
+      openDemo();
+      router.replace('/(tabs)/home');
+    });
   }
 
   return (
@@ -71,8 +105,9 @@ export default function VerificationScreen() {
           </Text>
 
           <Text style={styles.description}>
-            Enter a {CODE_LENGTH}-digit sample code to test this screen. No
-            verification code has been sent.
+            {__DEV__
+              ? 'Development preview: enter 123456 to open Home. No verification code has been sent.'
+              : 'Contact verification is not connected in this build.'}
           </Text>
 
           <Text style={styles.label}>Verification code</Text>
@@ -97,6 +132,8 @@ export default function VerificationScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={submitCode}
+            disabled={busy}
+            accessibilityState={{ disabled: busy }}
             style={({ pressed }) => [
               styles.button,
               pressed && styles.buttonPressed,
@@ -116,8 +153,8 @@ export default function VerificationScreen() {
           )}
 
           <Text style={styles.notice}>
-            Sending, resending and checking real codes will be connected with
-            Supabase Auth. This preview does not sign you in.
+            This code opens a local development preview only. Real contact
+            verification will be connected during backend integration.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -136,13 +173,20 @@ export default function VerificationScreen() {
           </View>
         </InputAccessoryView>
       )}
+      <BrandedLoader
+        visible={phase !== 'idle'}
+        success={phase === 'success'}
+        label={
+          phase === 'success' ? 'Demo code accepted' : 'Checking demo code…'
+        }
+      />
     </SafeAreaView>
   );
 }
 
 // ===============================================================
 // SCREEN STYLES
-// Keep code entry readable and consistent with the church palette.
+// Preserve the church palette and existing keyboard controls.
 // ===============================================================
 
 const styles = StyleSheet.create({
