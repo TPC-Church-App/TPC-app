@@ -1,6 +1,6 @@
 // ===============================================================
 // apps/mobile/app/index.tsx
-// Display the church branding and open the existing sign-in screen.
+// Display church branding and provide registration/sign-in entry.
 // ===============================================================
 
 import { router } from 'expo-router';
@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
+import { useMemberDraft } from '@/store/member-draft';
 
 // ===============================================================
 // BRANDED OPENING SCREEN
@@ -23,6 +24,18 @@ import { colors } from '@/constants/theme';
 // ===============================================================
 
 export default function WelcomeScreen() {
+  const { setEntryMode } = useMemberDraft();
+
+  function startRegistration() {
+    setEntryMode('register');
+    router.push('/(auth)/register');
+  }
+
+  function startSignIn() {
+    setEntryMode('signIn');
+    router.push('/(auth)/login');
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -52,13 +65,24 @@ export default function WelcomeScreen() {
         <View style={styles.footer}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/(auth)/login')}
+            onPress={startRegistration}
             style={({ pressed }) => [
               styles.button,
               pressed && styles.buttonPressed,
             ]}
           >
             <Text style={styles.buttonText}>Get started</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={startSignIn}
+            style={({ pressed }) => [
+              styles.signInButton,
+              pressed && styles.signInPressed,
+            ]}
+          >
+            <Text style={styles.signInText}>Already registered? Sign in</Text>
           </Pressable>
 
           <Text style={styles.motto}>FAITH · FAMILY · PURPOSE</Text>
@@ -70,7 +94,7 @@ export default function WelcomeScreen() {
 
 // ===============================================================
 // SCREEN STYLES
-// Use open space, fine circular borders and the reference palette.
+// Use open space, fine circular borders and the church palette.
 // ===============================================================
 
 const styles = StyleSheet.create({
@@ -157,6 +181,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.onPrimary,
+  },
+  signInButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  signInPressed: {
+    opacity: 0.7,
+  },
+  signInText: {
+    color: colors.link,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   motto: {
     marginTop: 24,

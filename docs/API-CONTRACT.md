@@ -1,11 +1,11 @@
 # TPC Church App - API Contract
 
-**Revision:** 1.1 (29 October 2026)
+**Revision:** 1.2 (30 October 2026)
 **Status:** Repository implementation reference; hosted behaviour unverified.
 
 ## Boundaries
 
-The mobile app currently renders a welcome screen and phone/email sign-in UI.
+The mobile app contains guarded member-demo journeys, including saved device state, attendance and payment scenario screens.
 It does not call Supabase Auth or payment functions. This contract describes
 existing payment source code and identifies the missing integration contracts.
 It does not imply that functions are deployed or production-ready.
@@ -87,7 +87,7 @@ HTTPS `data.authorization_url`. Other provider fields may also be present.
 ```
 
 The callback is constructed as `APP_URL/payment/callback`; that destination
-and the mobile return flow are not implemented in this repository. A callback
+is not connected; the mobile demo return route is a separate scenario preview and does not receive live Paystack callbacks. A callback
 or checkout screen is never proof of successful payment.
 
 Initialization creates a fresh offering/reference per request. Client retry
@@ -167,3 +167,19 @@ Define and test each contract before its frontend integration:
 
 These are planned capabilities, not available endpoints. Track completion in
 README.md rather than creating a second competing progress checklist.
+
+## Member-demo adapters and proposed catalog contract (30 October 2026)
+
+The frontend deliberately uses demo data only. No endpoint was added or changed in this milestone. `services/demo-storage` stores device demo state, not an Auth session or a shared member database. A phone/email entered on sign-in does not select a saved device profile.
+
+The backend owner must agree a fund/campaign discovery contract before live checkout. Proposed fields: stable UUID `id`, display `name`, `description`, category (offering/tithe/property/general/program), `is_active`, currency, display order, optional campaign dates and updated-at/version. These are adapter requirements, not confirmed database fields or an available endpoint. Agree whether campaign dates affect checkout eligibility, fund archival and retention of historical names/categories. The server remains authoritative for availability, amount limits and ownership; the frontend must not create/activate funds.
+
+History needs cursor pagination, fund/category snapshots, integer minor-unit amount, currency, reference, created/updated timestamps and authoritative payment status. Receipts need a server-owned receipt identifier and eligibility decision; client return parameters and HTTP 200 alone never establish success. Map all statuses documented above. Demo replay rules only protect the local preview and do not implement reconciliation or refunds.
+
+Remaining member contracts also need media/content URLs and permissions, notification/read/preference semantics, profile/photo storage limits, department request decisions and server-granted roles, roster availability/approval states, both newcomer and financial-sponsorship invitations, and witness eligibility/consent. Financial sponsorship must not imply approval or funding from a prepared request. Contact details, bank information and staff roles must not be inferred from demo data.
+
+## Partner review required before live integration
+
+The member demo UI is ready to be reviewed against these proposed contracts, subject to its final validation. No agreement is recorded on behalf of the backend owner. Confirm: (1) phone/email OTP request/verification/resend, expiry, error codes and session response; (2) profile creation/fetch/update and photo storage; (3) service-specific signed QR, trusted time, witness eligibility and offline evidence/idempotency; (4) active fund/campaign discovery, checkout return, reconciliation, paginated history and receipt eligibility; (5) department/roster decisions and server-owned permissions; (6) content/media, read-state/preferences, badges and both sponsorship/invitation types.
+
+Confirm successful, pending, rejected, expired, denied, network-error and retry responses for each relevant flow. The frontend owner connects these APIs and tests integrated behaviour after the backend owner supplies them. Native demo recovery and mock results do not establish production authentication or financial integrity.

@@ -1,10 +1,10 @@
 // ===============================================================
-// apps/mobile/app/check-in/error.tsx
+// apps/mobile/planned-routes/check-in/error.tsx
 // Check-in failure and retry guidance.
-// Status: Structure placeholder; no component implemented.
+// Status: Inactive scaffold; Expo Router does not load this file.
 // ===============================================================
 
 // ===============================================================
-// IMPLEMENTATION PENDING
-// Add the component and its behavior during frontend development.
+// INACTIVE ROUTE PLACEHOLDER
+// Retained for reference; inspect active routes in apps/mobile/app first.
 // ===============================================================

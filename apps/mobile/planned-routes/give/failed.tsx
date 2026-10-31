@@ -1,10 +1,10 @@
 // ===============================================================
-// apps/mobile/app/give/failed.tsx
+// apps/mobile/planned-routes/give/failed.tsx
 // Payment failure and recovery guidance.
-// Status: Structure placeholder; no component implemented.
+// Status: Inactive scaffold; Expo Router does not load this file.
 // ===============================================================
 
 // ===============================================================
-// IMPLEMENTATION PENDING
-// Add the component and its behavior during frontend development.
+// INACTIVE ROUTE PLACEHOLDER
+// Retained for reference; inspect active routes in apps/mobile/app first.
 // ===============================================================

@@ -1,10 +1,10 @@
 // ===============================================================
-// apps/mobile/app/(auth)/_layout.tsx
+// apps/mobile/planned-routes/(auth)/_layout.tsx
 // Authentication navigation layout.
-// Status: Structure placeholder; no component implemented.
+// Status: Inactive scaffold; Expo Router does not load this file.
 // ===============================================================
 
 // ===============================================================
-// IMPLEMENTATION PENDING
-// Add the component and its behavior during frontend development.
+// INACTIVE ROUTE PLACEHOLDER
+// Retained for reference; inspect active routes in apps/mobile/app first.
 // ===============================================================
