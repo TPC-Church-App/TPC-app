@@ -1,11 +1,11 @@
 // ===============================================================
 // apps/mobile/utils/giving.ts
 // Work in integer kobo and accept at most two decimal places.
-// Limits match the current payment handler, not a new product policy.
+// The frontend minimum follows product policy; the backend must enforce it too.
 // Parsing uses O(n) time/space for the entered text.
 // ===============================================================
 
-export const MIN_GIVING_NAIRA = 100;
+export const MIN_GIVING_NAIRA = 500;
 export const MAX_GIVING_NAIRA = 1_000_000;
 
 type AmountResult =
@@ -34,8 +34,11 @@ export function parseGivingAmount(input: string): AmountResult {
   const [wholeText, fraction = ''] = value.replace(/,/g, '').split('.');
   const whole = Number(wholeText);
 
-  if (!Number.isSafeInteger(whole) || whole > MAX_GIVING_NAIRA) {
-    return { valid: false, message: 'Enter between ₦100 and ₦1,000,000.' };
+  if (!Number.isSafeInteger(whole)) {
+    return { valid: false, message: 'Enter a valid amount in naira.' };
+  }
+  if (whole > MAX_GIVING_NAIRA) {
+    return { valid: false, message: 'Enter an amount up to ₦1,000,000.' };
   }
 
   const amountMinor = whole * 100 + Number(fraction.padEnd(2, '0'));
@@ -44,7 +47,9 @@ export function parseGivingAmount(input: string): AmountResult {
     amountMinor < MIN_GIVING_NAIRA * 100 ||
     amountMinor > MAX_GIVING_NAIRA * 100
   ) {
-    return { valid: false, message: 'Enter between ₦100 and ₦1,000,000.' };
+    return amountMinor < MIN_GIVING_NAIRA * 100
+      ? { valid: false, message: 'The minimum gift is ₦500.' }
+      : { valid: false, message: 'Enter an amount up to ₦1,000,000.' };
   }
 
   return { valid: true, amountMinor };

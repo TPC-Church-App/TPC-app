@@ -1,8 +1,8 @@
 # Member UI change history
 
-## 30 October 2026 — unreleased member demo milestone
+## 30 October 2026 — member demo milestone (merged into `dev`)
 
-Branch: chore/member-home-ui. Pull request target: dev. No commit, push or merge has been performed by the assistant.
+Branch: `chore/member-home-ui`. The partner merged PR #4 into `dev` on 2 November 2026 (merge commit `9b4d8b8`; member UI commit `3a3ef9d`). The assistant did not perform the merge.
 
 ### Member journeys
 
@@ -14,7 +14,7 @@ Branch: chore/member-home-ui. Pull request target: dev. No commit, push or merge
 - Added editable Profile, native photo selection/copy, explicit device-profile save/load, Settings, notification preferences and confirmed demo-data reset.
 - Added department request summaries, progress and pending/approved/rejected demo outcomes. Department schedules and worker availability/approval previews remain separate from ordinary member access.
 - Added announcements, message details, weekly church messages, read/unread state and a preference-filtered notification inbox.
-- Added a sample sermon library, bookmarks and playback controls over bundled test audio. No real sermon recording is claimed.
+- Added sample sermon entries and bookmarks. The bundled test tone was removed in the 2 November follow-up and replaced by provider handoff previews; no real sermon recording is claimed.
 - Added demo badges, newcomer invitations and financial-sponsorship requests. Prepared requests do not contact anyone or promise funding.
 - Added a shared sample service, QR/manual-code scanner, permission-based GPS evidence, witness requests/eligible-member confirmation, persistent native attendance queue, history, retry and confirmed/rejected/expired demo views.
 - Added separate Giving, Checkout, Payment Return, Payment History and Receipt interfaces. Funds/categories include offering, tithes, property, voluntary giving and a sample outreach campaign.
@@ -37,14 +37,14 @@ Branch: chore/member-home-ui. Pull request target: dev. No commit, push or merge
 
 ### Verification record
 
-| Snapshot/check                    | Evidence                                                                                                                                                                                           |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before the final functional fixes | User reported that format:check, TypeScript and all original 23 tests passed.                                                                                                                      |
-| Current source                    | Prettier library formatting and syntax/import/header cross-checks performed without terminal commands.                                                                                             |
-| Current regression inventory      | 41 cases: 7 attendance, 16 member demo, 18 recovery/lifecycle. New cases and strengthened name-boundary assertions are awaiting manual execution.                                                  |
-| Current terminal checks           | User output confirms formatting, TypeScript, 41 passed tests, SDK alignment, Doctor 20/20 and both iOS/web exports. Audit completed with 8 unresolved findings; device acceptance remains pending. |
-| Device/browser acceptance         | Awaiting user confirmation for the final snapshot.                                                                                                                                                 |
-| Dependency audit                  | A fresh manual npm audit remains required; no advisory is marked fixed by UI work.                                                                                                                 |
+| Snapshot/check                    | Evidence                                                                                                                                                                                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before the final functional fixes | User reported that format:check, TypeScript and all original 23 tests passed.                                                                                                                                                                                          |
+| Current source                    | Prettier library formatting and syntax/import/header cross-checks performed without terminal commands.                                                                                                                                                                 |
+| Current regression inventory      | 41 cases: 7 attendance, 16 member demo, 18 recovery/lifecycle. New cases and strengthened name-boundary assertions are awaiting manual execution.                                                                                                                      |
+| Current terminal checks           | Before the latest giving UI edits, supplied output confirmed formatting, TypeScript, 41 tests, SDK alignment, Doctor 20/20 and both iOS/web exports. The user confirmed iPhone and browser acceptance for the merged milestone. Eight dependency findings remain open. |
+| Device/browser acceptance         | Awaiting user confirmation for the final snapshot.                                                                                                                                                                                                                     |
+| Dependency audit                  | A fresh manual npm audit remains required; no advisory is marked fixed by UI work.                                                                                                                                                                                     |
 
 This history records source changes and verification evidence. It does not claim a deployed application, a complete staff dashboard or approved backend contracts.
 
@@ -54,7 +54,7 @@ Expo Doctor identified expo-asset as a required direct dependency of expo-audio.
 
 ### Verified Expo exports and current audit
 
-The user installed expo-asset through Expo, passed the SDK alignment check and Expo Doctor 20/20, and completed both iOS and web Metro exports. The new audit reports eight affected-package findings (five low, three high) from deepmerge and Zod. Security remediation/assessment remains open; the forced Expo 51 downgrade is not accepted. Final phone/browser acceptance is still pending.
+The user installed expo-asset through Expo, passed the SDK alignment check and Expo Doctor 20/20, and completed both iOS and web Metro exports. The new audit reports eight affected-package findings (five low, three high) from deepmerge and Zod. Security remediation/assessment remains open; the forced Expo 51 downgrade is not accepted. The user later confirmed phone and browser acceptance passed for the merged milestone.
 
 ### Security dry-run follow-up
 
@@ -62,4 +62,22 @@ The user ran npm audit fix --dry-run --ignore-scripts. The preview still reporte
 
 ## 31 October 2026 — final device acceptance
 
-The user confirmed that both final iPhone and browser acceptance passed. This is manually reported acceptance, not an automated UI test result. Formatting, TypeScript, all 41 tests, Doctor 20/20 and iOS/web exports were previously confirmed by supplied output. Eight dependency-security findings remain unresolved. Git review, commit, push, partner review and merge have not been confirmed.
+The user confirmed that both iPhone and browser acceptance passed for the merged milestone. This is manually reported acceptance, not an automated UI test result. Formatting, TypeScript, all 41 tests, Doctor 20/20 and iOS/web exports were confirmed by supplied output for that milestone. Eight dependency-security findings remain unresolved.
+
+## 2 November 2026 — giving and payment-history UI follow-up
+
+- Replaced giving category cards and history filter chips with compact bottom selection sheets.
+- Changed the frontend amount minimum from ₦100 to ₦500, kept the minimum out of normal helper copy, and added boundary cases for ₦499, ₦499.99, ₦500 and ₦500.01.
+- Updated the API contract to state that ₦500 is the product target while the current backend handler still accepts ₦100; server enforcement and tests remain partner work.
+- Kept one checkout handoff preview. In production, Paystack Checkout and account/device eligibility determine which payment methods appear. The current screen starts no real payment.
+- Normalized sample Home copy.
+- Current snapshot checks and iPhone/browser acceptance are pending after these latest UI changes. No commit, push or new pull request has been made for this follow-up.
+
+## 2 November 2026 — service content and appearance UI follow-up
+
+- Made the Home service card expand and collapse an accessible Sunday-to-Saturday timetable. It shows the current local sample service on Sunday and labels unsupplied days as having no sample entry. Admin edits and published services still need backend data and permissions.
+- Replaced the bundled six-second test tone with a sermon detail preview for theme, Bible passages and pastor notes, plus separate YouTube video and Mixlr audio-only handoff buttons.
+- Restricted future media handoffs to HTTPS URLs on their matching provider domains. No real URLs, embedded player, Mixlr stream, admin content feed or server expiry is connected; the 24-hour-after-service-end policy currently appears as explanatory UI only.
+- Added persisted System/Light/Dark appearance preference to the device demo workspace, applied the matching palette through auth and member screens/components, and selected the corresponding supplied church logo. Existing saved workspaces without an appearance field default to System.
+- Updated README, backend handoff, manual acceptance plan and current PR draft to distinguish shipped demo UI from server responsibilities.
+- Prettier, TypeScript, tests, Expo checks/exports and visual acceptance have not been run for this snapshot. The user must run the supplied manual commands and confirm iPhone/browser appearance and navigation before commit or push.

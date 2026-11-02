@@ -62,10 +62,13 @@ test('amount parsing keeps exact kobo and rejects malformed/out-of-range money',
     valid: true,
     amountMinor: 100025,
   });
-  assert.deepEqual(parseGivingAmount('100'), {
+  assert.deepEqual(parseGivingAmount('500'), {
     valid: true,
-    amountMinor: 10000,
+    amountMinor: 50000,
   });
+  assert.equal(parseGivingAmount('499.99').valid, false);
+  assert.equal(parseGivingAmount('499').valid, false);
+  assert.equal(parseGivingAmount('500.01').valid, true);
   for (const value of [
     '99.99',
     '1,000,000.01',

@@ -10,7 +10,7 @@ import {
   GivingPage,
   GivingButton,
   GivingChoice,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import MemberField from '@/components/member-field';
 import DemoStatus from '@/components/demo-status';
@@ -25,6 +25,7 @@ import { formatAttendanceStamp } from '@/utils/attendance';
 // ===============================================================
 
 export default function CommunityScreen() {
+  const ui = useGivingStyles();
   const params = useLocalSearchParams<{ section?: string }>();
   const [tab, setTab] = useState(() => communitySection(params.section));
   // Reapply explicit route selection when returning to this mounted tab,

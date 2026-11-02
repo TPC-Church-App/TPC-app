@@ -4,7 +4,7 @@
 // Its parent controls visibility; no artificial waiting is added.
 // ===============================================================
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
 
 // ===============================================================
@@ -53,6 +53,8 @@ export default function BrandedLoader({
   closeLabel = 'Close preview',
   children,
 }: BrandedLoaderProps) {
+  const { colors, scheme } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const reducedMotion = useReducedMotion();
   const rotation = useRef(new Animated.Value(0)).current;
 
@@ -103,7 +105,11 @@ export default function BrandedLoader({
             ]}
           />
           <Image
-            source={require('../assets/light/church-logo.png')}
+            source={
+              scheme === 'dark'
+                ? require('../assets/dark/church-logo.png')
+                : require('../assets/light/church-logo.png')
+            }
             style={styles.logo}
             resizeMode="contain"
             accessibilityLabel="The Pentecostal Congregation logo"
@@ -163,78 +169,80 @@ export default function BrandedLoader({
 // LOADER STYLES
 // ===============================================================
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brand: {
-    width: 156,
-    height: 156,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    width: 156,
-    height: 156,
-    borderRadius: 78,
-    borderWidth: 4,
-    borderColor: colors.decorativeBorder,
-    borderTopColor: colors.primary,
-    borderRightColor: colors.primaryPressed,
-  },
-  logo: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
-    backgroundColor: colors.surface,
-  },
-  successRing: {
-    borderColor: colors.success,
-    borderTopColor: colors.success,
-    borderRightColor: colors.success,
-  },
-  successTick: {
-    marginTop: 16,
-    fontSize: 44,
-    lineHeight: 56,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  title: {
-    marginTop: 24,
-    fontSize: 32,
-    lineHeight: 42,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  label: {
-    marginTop: 8,
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    color: colors.secondaryText,
-  },
-  button: {
-    minHeight: 48,
-    marginTop: 24,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onPrimary,
-  },
-  pressed: { opacity: 0.65 },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scroll: { flex: 1 },
+    content: {
+      flexGrow: 1,
+      padding: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    brand: {
+      width: 156,
+      height: 156,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ring: {
+      position: 'absolute',
+      width: 156,
+      height: 156,
+      borderRadius: 78,
+      borderWidth: 4,
+      borderColor: colors.decorativeBorder,
+      borderTopColor: colors.primary,
+      borderRightColor: colors.primaryPressed,
+    },
+    logo: {
+      width: 124,
+      height: 124,
+      borderRadius: 62,
+      backgroundColor: colors.surface,
+    },
+    successRing: {
+      borderColor: colors.success,
+      borderTopColor: colors.success,
+      borderRightColor: colors.success,
+    },
+    successTick: {
+      marginTop: 16,
+      fontSize: 44,
+      lineHeight: 56,
+      fontWeight: '700',
+      color: colors.success,
+    },
+    title: {
+      marginTop: 24,
+      fontSize: 32,
+      lineHeight: 42,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    label: {
+      marginTop: 8,
+      fontSize: 16,
+      lineHeight: 24,
+      textAlign: 'center',
+      color: colors.secondaryText,
+    },
+    button: {
+      minHeight: 48,
+      marginTop: 24,
+      paddingHorizontal: 24,
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+    },
+    buttonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.onPrimary,
+    },
+    pressed: { opacity: 0.65 },
+  });
+}

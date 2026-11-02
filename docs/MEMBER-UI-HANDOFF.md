@@ -1,6 +1,6 @@
 # Member UI handoff — final validation and manual Git steps
 
-Branch: chore/member-home-ui. Target: dev. The current milestone covers the member demo UI. Staff dashboard and real backend integration remain separate work.
+Historical handoff for the member demo milestone merged into `dev` as PR #4 (merge commit `9b4d8b8`). For the current giving UI follow-up and partner tasks, read [READ-FIRST-BACKEND-HANDOFF.md](READ-FIRST-BACKEND-HANDOFF.md). The staff dashboard and real backend integration remain separate work.
 
 The user reported passing format:check, TypeScript and the original 23 tests before the final review fixes. The updated suite contains 41 cases. The supplied post-fix log confirms Prettier write/check, TypeScript and 41/41 tests passed. The expo-asset peer is now installed; SDK alignment, Doctor 20/20 and both iOS/web exports passed in supplied output. Audit completed with eight findings (five low, three high) requiring review. The user confirmed both iPhone and browser acceptance passed on 31 October 2026. The assistant has formatted/parsed source through libraries and has not run terminal commands, tests, builds or Git operations.
 
@@ -82,8 +82,9 @@ Prioritize these checks before pushing, then cover the full acceptance plan:
 1. Get started → valid member details → phone/email → demo OTP 123456 → Home. Wrong code and age below four reject. Save Profile/photo, reload, return through Sign in and explicitly load the saved device profile.
 2. Request a department, preview approval, open Community and choose another tab. Return to Profile and use the schedule shortcut again: Rosters & schedules opens. Save department changes explicitly.
 3. Exercise both invitations, messages/preferences, giving → checkout → return → history/receipt and attendance → manual sample code/QR → GPS or witness → queue → retry/result. No real sending, payment or approval is claimed.
-4. Finish the sample audio, replay it and leave/background immediately; it must stay stopped. Check normal play/pause/seek. Repeat navigation through every menu item, especially Giving.
+4. On Home, expand and collapse the weekly service card. Open Sermons, review the selected message’s topic, passages and notes, bookmark/unbookmark it, and tap each media action; the unconfigured demo links should show a not-connected message without opening a URL.
 5. Test large text, keyboard/VoiceOver, scrolling/sheets, Reduce Motion, permission denial and queue save/reload. In Settings, cancellation preserves data; confirmed reset clears the demo. Loading failures must offer retry and block ordinary saves; automated cases cover corrupt metadata and interrupted writes without requiring you to damage real device storage.
+6. In Settings, choose System, Light and Dark. Check the church’s dark logo, readable text, navigation bars and saved selection on iPhone and browser. Change the device theme while System is selected, if practical.
 
 Record actual acceptance results in PR-MEMBER-UI.md. Server API agreement requires your partner's response; it cannot be completed by the assistant on their behalf.
 

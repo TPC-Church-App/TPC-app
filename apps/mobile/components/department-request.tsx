@@ -15,7 +15,7 @@ import MemberField from '@/components/member-field';
 import {
   GivingButton,
   GivingSheet,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import { useMemberDraft } from '@/store/member-draft';
 
@@ -24,6 +24,7 @@ import { useMemberDraft } from '@/store/member-draft';
 // ===============================================================
 
 export default function DepartmentRequest() {
+  const ui = useGivingStyles();
   const { draft, updateDraft } = useMemberDraft();
   const [department, setDepartment] = useState('');
   const [error, setError] = useState('');

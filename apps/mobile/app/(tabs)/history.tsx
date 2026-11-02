@@ -9,9 +9,9 @@ import { Text, View, Pressable } from 'react-native';
 import {
   GivingPage,
   GivingButton,
-  GivingChoice,
   GivingSheet,
-  givingStyles as ui,
+  GivingSelectionSheet,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import DemoStatus from '@/components/demo-status';
 import {
@@ -34,10 +34,14 @@ import { formatGivingAmount, formatGivingDate } from '@/utils/giving';
 // ===============================================================
 
 export default function HistoryScreen() {
+  const ui = useGivingStyles();
   const { data } = useDemoWorkspace();
   const [samples, setSamples] = useState(false);
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState('all');
+  const [filterPicker, setFilterPicker] = useState<
+    'category' | 'status' | null
+  >(null);
   const [selected, setSelected] = useState<DemoPayment | null>(null);
   const records: DemoPayment[] = samples
     ? SAMPLE_GIVING_RECORDS.map((p) => ({ ...p }))
@@ -85,33 +89,22 @@ export default function HistoryScreen() {
           ? 'Sample illustrations do not belong to you.'
           : 'Saved on this device. These are demo checkout records, not real payments.'}
       </Text>
-      <Text style={ui.label}>Giving type</Text>
-      <View style={ui.wrap}>
-        {[['all', 'All types'], ...Object.entries(GIVING_CATEGORIES)].map(
-          ([v, label]) => (
-            <GivingChoice
-              key={v}
-              label={label}
-              selected={category === v}
-              onPress={() => setCategory(v)}
-            />
-          ),
-        )}
-      </View>
-      <Text style={ui.label}>Payment status</Text>
-      <View style={ui.wrap}>
-        {['all', ...PAYMENT_STATUSES].map((v) => (
-          <GivingChoice
-            key={v}
-            label={
-              v === 'all'
-                ? 'All statuses'
-                : GIVING_STATUS_LABELS[v as PaymentStatus]
-            }
-            selected={status === v}
-            onPress={() => setStatus(v)}
+      <Text style={ui.label}>Filter payments</Text>
+      <View style={ui.row}>
+        <View style={{ flex: 1 }}>
+          <GivingButton
+            label={`${category === 'all' ? 'All types' : GIVING_CATEGORIES[category as GivingCategory]}  ▾`}
+            secondary
+            onPress={() => setFilterPicker('category')}
           />
-        ))}
+        </View>
+        <View style={{ flex: 1 }}>
+          <GivingButton
+            label={`${status === 'all' ? 'All statuses' : GIVING_STATUS_LABELS[status as PaymentStatus]}  ▾`}
+            secondary
+            onPress={() => setFilterPicker('status')}
+          />
+        </View>
       </View>
       {!rows.length && (
         <View style={ui.card}>
@@ -145,6 +138,37 @@ export default function HistoryScreen() {
           <Text style={ui.link}>View details →</Text>
         </Pressable>
       ))}
+      <GivingSelectionSheet
+        title={
+          filterPicker === 'category'
+            ? 'Filter by giving type'
+            : 'Filter by payment status'
+        }
+        visible={filterPicker !== null}
+        onClose={() => setFilterPicker(null)}
+      >
+        {(filterPicker === 'category'
+          ? [['all', 'All types'], ...Object.entries(GIVING_CATEGORIES)]
+          : [
+              ['all', 'All statuses'],
+              ...PAYMENT_STATUSES.map((value) => [
+                value,
+                GIVING_STATUS_LABELS[value],
+              ]),
+            ]
+        ).map(([value, label]) => (
+          <GivingButton
+            key={value}
+            label={`${label}${(filterPicker === 'category' ? category : status) === value ? '  ✓' : ''}`}
+            secondary
+            onPress={() => {
+              if (filterPicker === 'category') setCategory(value);
+              else setStatus(value);
+              setFilterPicker(null);
+            }}
+          />
+        ))}
+      </GivingSelectionSheet>
       <GivingSheet
         title="Demo payment details"
         visible={!!active}

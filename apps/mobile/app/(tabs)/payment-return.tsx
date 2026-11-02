@@ -10,7 +10,7 @@ import { Text, View } from 'react-native';
 import {
   GivingPage,
   GivingButton,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import BrandedLoader from '@/components/branded-loader';
 import DemoStatus from '@/components/demo-status';
@@ -23,6 +23,7 @@ import { GIVING_STATUS_LABELS } from '@/constants/giving';
 // ===============================================================
 
 export default function PaymentReturnScreen() {
+  const ui = useGivingStyles();
   const params = useLocalSearchParams<{
     reference?: string;
     status?: string;

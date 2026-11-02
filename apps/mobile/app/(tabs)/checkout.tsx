@@ -11,7 +11,7 @@ import {
   GivingPage,
   GivingButton,
   GivingChoice,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import DemoStatus from '@/components/demo-status';
 import { useDemoWorkspace } from '@/store/demo-workspace';
@@ -24,6 +24,7 @@ import { formatGivingAmount } from '@/utils/giving';
 // ===============================================================
 
 export default function CheckoutScreen() {
+  const ui = useGivingStyles();
   const params = useLocalSearchParams<{ reference?: string }>();
   const { data, ready } = useDemoWorkspace();
   const payment = data.payments.find((p) => p.reference === params.reference);

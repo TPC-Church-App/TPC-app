@@ -8,7 +8,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   Keyboard,
@@ -23,9 +23,9 @@ import BrandedLoader from '@/components/branded-loader';
 import {
   GivingButton as ActionButton,
   GivingPage as MemberPage,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useAttendanceDraft } from '@/store/attendance-draft';
 import {
   DEMO_SERVICE_PASS,
@@ -41,6 +41,9 @@ import {
 // ===============================================================
 
 export default function ScannerScreen() {
+  const ui = useGivingStyles();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { service, attempt, saveEvidence, ready } = useAttendanceDraft();
   const [permission, requestPermission] = useCameraPermissions();
   const [focused, setFocused] = useState(false);
@@ -473,46 +476,48 @@ export default function ScannerScreen() {
 // SCANNER STYLES
 // ===============================================================
 
-const styles = StyleSheet.create({
-  scannerCard: {
-    padding: 18,
-    gap: 16,
-    borderRadius: 24,
-    backgroundColor: '#26291F',
-  },
-  scannerTitle: {
-    fontSize: 12,
-    lineHeight: 18,
-    letterSpacing: 1,
-    fontWeight: '700',
-    color: colors.primary,
-    textAlign: 'center',
-  },
-  scannerText: {
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.background,
-    textAlign: 'center',
-  },
-  cameraFrame: {
-    width: '100%',
-    maxWidth: 380,
-    alignSelf: 'center',
-    aspectRatio: 0.9,
-    maxHeight: 420,
-    overflow: 'hidden',
-    borderRadius: 18,
-    backgroundColor: '#171A14',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cameraPlaceholder: { padding: 24 },
-  scanGuide: {
-    position: 'absolute',
-    width: '76%',
-    aspectRatio: 1,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 18,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    scannerCard: {
+      padding: 18,
+      gap: 16,
+      borderRadius: 24,
+      backgroundColor: '#26291F',
+    },
+    scannerTitle: {
+      fontSize: 12,
+      lineHeight: 18,
+      letterSpacing: 1,
+      fontWeight: '700',
+      color: colors.primary,
+      textAlign: 'center',
+    },
+    scannerText: {
+      fontSize: 15,
+      lineHeight: 23,
+      color: colors.onScanner,
+      textAlign: 'center',
+    },
+    cameraFrame: {
+      width: '100%',
+      maxWidth: 380,
+      alignSelf: 'center',
+      aspectRatio: 0.9,
+      maxHeight: 420,
+      overflow: 'hidden',
+      borderRadius: 18,
+      backgroundColor: '#171A14',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cameraPlaceholder: { padding: 24 },
+    scanGuide: {
+      position: 'absolute',
+      width: '76%',
+      aspectRatio: 1,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderRadius: 18,
+    },
+  });
+}

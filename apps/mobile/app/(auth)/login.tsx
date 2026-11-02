@@ -5,7 +5,7 @@
 // ===============================================================
 
 import { Picker } from '@react-native-picker/picker';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import type { CountryCode } from 'libphonenumber-js';
 import {
@@ -28,7 +28,7 @@ import {
   PHONE_COUNTRIES,
   getPhoneCountryLabel,
 } from '@/constants/countries';
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { formatPhoneInput, validatePhoneInput } from '@/utils/phone';
 import { useDemoTransition } from '@/utils/use-demo-transition';
 
@@ -49,6 +49,8 @@ const CONTACT_KEYBOARD_TOOLBAR_ID = 'contact-keyboard-toolbar';
 // ===============================================================
 
 export default function LoginScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [method, setMethod] = useState<'phone' | 'email'>('phone');
   const [contact, setContact] = useState('');
   const [country, setCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
@@ -369,163 +371,165 @@ export default function LoginScreen() {
 // Keep controls readable and preserve the cream/gold palette.
 // ===============================================================
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flexGrow: 1,
-    padding: 24,
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.secondaryText,
-    marginBottom: 32,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  countryButton: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    marginBottom: 24,
-  },
-  countryText: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    marginRight: 12,
-  },
-  countryAction: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.link,
-  },
-  pickerPanel: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-  picker: {
-    width: '100%',
-    color: colors.text,
-  },
-  pickerItem: {
-    fontSize: 18,
-    color: colors.text,
-  },
-  pickerDoneButton: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.decorativeBorder,
-  },
-  input: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    color: colors.text,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-  },
-  inputError: {
-    borderColor: colors.error,
-  },
-  help: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
-  },
-  switchButton: {
-    minHeight: 48,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-    paddingVertical: 12,
-    marginTop: 16,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.link,
-  },
-  enterButton: {
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    marginTop: 16,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  enterButtonPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  enterButtonText: {
-    color: colors.onPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  feedback: {
-    marginTop: 12,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
-  },
-  errorText: {
-    color: colors.error,
-  },
-  keyboardToolbar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: 12,
-  },
-  keyboardDoneButton: {
-    minWidth: 64,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  notice: {
-    marginTop: 32,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flexGrow: 1,
+      padding: 24,
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    description: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.secondaryText,
+      marginBottom: 32,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    countryButton: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      marginBottom: 24,
+    },
+    countryText: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.text,
+      marginRight: 12,
+    },
+    countryAction: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.link,
+    },
+    pickerPanel: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      marginBottom: 24,
+      overflow: 'hidden',
+    },
+    picker: {
+      width: '100%',
+      color: colors.text,
+    },
+    pickerItem: {
+      fontSize: 18,
+      color: colors.text,
+    },
+    pickerDoneButton: {
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.decorativeBorder,
+    },
+    input: {
+      minHeight: 52,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 16,
+    },
+    inputError: {
+      borderColor: colors.error,
+    },
+    help: {
+      marginTop: 8,
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.secondaryText,
+    },
+    switchButton: {
+      minHeight: 48,
+      justifyContent: 'center',
+      alignSelf: 'flex-start',
+      paddingVertical: 12,
+      marginTop: 16,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    linkText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.link,
+    },
+    enterButton: {
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      marginTop: 16,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+    },
+    enterButtonPressed: {
+      backgroundColor: colors.primaryPressed,
+    },
+    enterButtonText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    feedback: {
+      marginTop: 12,
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.secondaryText,
+    },
+    errorText: {
+      color: colors.error,
+    },
+    keyboardToolbar: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingHorizontal: 12,
+    },
+    keyboardDoneButton: {
+      minWidth: 64,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+    },
+    notice: {
+      marginTop: 32,
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.secondaryText,
+    },
+  });
+}

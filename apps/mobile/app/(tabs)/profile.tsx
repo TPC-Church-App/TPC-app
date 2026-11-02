@@ -11,7 +11,7 @@ import {
   GivingPage,
   GivingButton,
   GivingChoice,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import ProfilePhoto from '@/components/profile-photo';
 import DepartmentRequest from '@/components/department-request';
@@ -24,6 +24,7 @@ import { profileError } from '@/utils/member-demo';
 // ===============================================================
 
 export default function ProfileScreen() {
+  const ui = useGivingStyles();
   const {
     draft,
     updateDraft,
@@ -77,7 +78,7 @@ export default function ProfileScreen() {
   return (
     <GivingPage
       title="Your profile"
-      subtitle="A place to belong. A faith to live."
+      subtitle="JESUS CHRIST IS THE CORNERSTONE."
       sectionLabel="PROFILE"
     >
       <View style={ui.card}>

@@ -4,7 +4,7 @@
 // ===============================================================
 
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MEMBER_PAGES, MEMBER_ROUTES } from '@/constants/member-pages';
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
 
 // ===============================================================
@@ -37,6 +37,8 @@ const MENU_ITEMS = [
 // ===============================================================
 
 export default function MemberMenu() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [visible, setVisible] = useState(false);
   const reducedMotion = useReducedMotion();
 
@@ -120,68 +122,70 @@ export default function MemberMenu() {
 // MEMBER MENU STYLES
 // ===============================================================
 
-const styles = StyleSheet.create({
-  trigger: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    backgroundColor: colors.surface,
-  },
-  link: {
-    color: colors.link,
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: '600',
-  },
-  pressed: { opacity: 0.65 },
-  overlay: { flex: 1, backgroundColor: 'rgba(48,45,41,0.35)' },
-  safeArea: { flex: 1 },
-  panel: {
-    flexGrow: 0,
-    margin: 20,
-    alignSelf: 'center',
-    width: '90%',
-    maxWidth: 480,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-  },
-  panelContent: { padding: 20 },
-  heading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
-  },
-  title: {
-    flexShrink: 1,
-    fontSize: 22,
-    lineHeight: 31,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  close: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  item: {
-    minHeight: 52,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.decorativeBorder,
-  },
-  itemText: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.text,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    trigger: {
+      minHeight: 44,
+      paddingHorizontal: 14,
+      justifyContent: 'center',
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.decorativeBorder,
+      backgroundColor: colors.surface,
+    },
+    link: {
+      color: colors.link,
+      fontSize: 15,
+      lineHeight: 23,
+      fontWeight: '600',
+    },
+    pressed: { opacity: 0.65 },
+    overlay: { flex: 1, backgroundColor: 'rgba(48,45,41,0.35)' },
+    safeArea: { flex: 1 },
+    panel: {
+      flexGrow: 0,
+      margin: 20,
+      alignSelf: 'center',
+      width: '90%',
+      maxWidth: 480,
+      borderRadius: 20,
+      backgroundColor: colors.background,
+    },
+    panelContent: { padding: 20 },
+    heading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginBottom: 12,
+    },
+    title: {
+      flexShrink: 1,
+      fontSize: 22,
+      lineHeight: 31,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    close: {
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    item: {
+      minHeight: 52,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.decorativeBorder,
+    },
+    itemText: {
+      flex: 1,
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.text,
+    },
+  });
+}

@@ -4,8 +4,8 @@
 // ===============================================================
 
 import { Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
-import { givingStyles as ui } from '@/components/giving-ui';
-import { colors } from '@/constants/theme';
+import { useGivingStyles } from '@/components/giving-ui';
+import { useAppTheme } from '@/constants/theme';
 
 // ===============================================================
 // LABELLED MEMBER FORM INPUT
@@ -26,6 +26,8 @@ export default function MemberField({
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
 }) {
+  const ui = useGivingStyles();
+  const { colors } = useAppTheme();
   return (
     <View style={{ gap: 6 }}>
       <Text style={ui.label}>{label}</Text>

@@ -5,7 +5,7 @@
 // ===============================================================
 
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   InputAccessoryView,
   Keyboard,
@@ -21,7 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { profileError } from '@/utils/member-demo';
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 
 const TOOLBAR_ID = 'member-details-keyboard';
@@ -38,6 +38,8 @@ const ATTENDANCE_OPTIONS = [
 // ===============================================================
 
 export default function RegisterScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { draft, updateDraft } = useMemberDraft();
   const [error, setError] = useState('');
 
@@ -220,125 +222,127 @@ export default function RegisterScreen() {
 // Use the established church palette and accessible touch sizes.
 // ===============================================================
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.secondaryText,
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    color: colors.text,
-    fontSize: 16,
-    letterSpacing: 0,
-    textAlign: 'left',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  help: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
-    marginBottom: 16,
-  },
-  option: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    marginBottom: 10,
-  },
-  selectedOption: {
-    borderColor: colors.link,
-    borderWidth: 2,
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    marginRight: 8,
-  },
-  selectionMark: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.link,
-  },
-  error: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.error,
-    marginBottom: 12,
-  },
-  button: {
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    marginTop: 12,
-  },
-  buttonPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onPrimary,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: 12,
-  },
-  doneButton: {
-    minWidth: 64,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flexGrow: 1,
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+      padding: 24,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    description: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.secondaryText,
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    input: {
+      minHeight: 52,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontSize: 16,
+      letterSpacing: 0,
+      textAlign: 'left',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    help: {
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.secondaryText,
+      marginBottom: 16,
+    },
+    option: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      marginBottom: 10,
+    },
+    selectedOption: {
+      borderColor: colors.link,
+      borderWidth: 2,
+    },
+    optionText: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.text,
+      marginRight: 8,
+    },
+    selectionMark: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.link,
+    },
+    error: {
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.error,
+      marginBottom: 12,
+    },
+    button: {
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 14,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      marginTop: 12,
+    },
+    buttonPressed: {
+      backgroundColor: colors.primaryPressed,
+    },
+    buttonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.onPrimary,
+    },
+    toolbar: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingHorizontal: 12,
+    },
+    doneButton: {
+      minWidth: 64,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
+}

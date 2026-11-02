@@ -11,7 +11,7 @@ import {
   GivingButton,
   GivingChoice,
   GivingSheet,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import DemoStatus from '@/components/demo-status';
 import { DEMO_MESSAGES } from '@/constants/messages';
@@ -23,6 +23,7 @@ type Message = (typeof DEMO_MESSAGES)[number];
 // ===============================================================
 
 export default function MessagesScreen() {
+  const ui = useGivingStyles();
   const { data, commit, ready, busy } = useDemoWorkspace();
   const [tab, setTab] = useState<'church' | 'notifications'>('church');
   const [selected, setSelected] = useState<Message | null>(null);

@@ -1,177 +1,116 @@
 // ===============================================================
 // apps/mobile/components/sermon-player.tsx
-// Control bundled sample playback without recording.
+// Hand off published sermon media to approved external providers.
 // ===============================================================
 
-// Real audio controls over a bundled, quiet test tone. No sermon is implied.
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import {
-  useAudioPlayer,
-  useAudioPlayerStatus,
-  setAudioModeAsync,
-} from 'expo-audio';
-import {
-  DemoOperationGuard,
-  startGuardedDemoPlayback,
-} from '@/utils/demo-lifecycle';
-import { GivingButton, givingStyles as ui } from '@/components/giving-ui';
+import { useState } from 'react';
+import { Linking, Text, View } from 'react-native';
+
+import { GivingButton, useGivingStyles } from '@/components/giving-ui';
+
+type SermonPlayerProps = {
+  youtubeUrl?: string;
+  mixlrUrl?: string;
+  mediaAvailable?: boolean;
+};
 
 // ===============================================================
-// PLAYER STATUS AND LIFECYCLE
+// EXTERNAL PROVIDER URL CHECKS
+// Accept HTTPS links only, and restrict each action to its named provider.
 // ===============================================================
 
-export default function SermonPlayer() {
-  const player = useAudioPlayer(require('../assets/demo/player-sample.wav'));
-  const status = useAudioPlayerStatus(player);
-  const [error, setError] = useState('');
-  const focused = useRef(false);
-  const operations = useRef(new DemoOperationGuard());
-  useFocusEffect(
-    useCallback(() => {
-      focused.current = true;
-      return () => {
-        focused.current = false;
-        operations.current.invalidate();
-        player.pause();
-      };
-    }, [player]),
-  );
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (s) => {
-      if (s !== 'active') {
-        operations.current.invalidate();
-        player.pause();
-      }
-    });
-    return () => sub.remove();
-  }, [player]);
+function isAllowedProviderUrl(url: string, provider: 'youtube' | 'mixlr') {
+  try {
+    const parsed = new URL(url);
+    if (
+      parsed.protocol !== 'https:' ||
+      parsed.username !== '' ||
+      parsed.password !== '' ||
+      parsed.port !== ''
+    )
+      return false;
+    const hostname = parsed.hostname.toLowerCase();
+    const hasContentPath = parsed.pathname.split('/').some(Boolean);
 
-  // ===============================================================
-  // SAMPLE PLAYBACK CONTROLS
-  // ===============================================================
+    if (provider === 'youtube') {
+      return (
+        hasContentPath &&
+        (hostname === 'youtube.com' ||
+          hostname.endsWith('.youtube.com') ||
+          hostname === 'youtu.be')
+      );
+    }
 
-  async function play() {
-    if (player.playing) {
-      operations.current.invalidate();
-      player.pause();
+    return (
+      hasContentPath &&
+      (hostname === 'mixlr.com' || hostname.endsWith('.mixlr.com'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+// ===============================================================
+// DEMO MEDIA HANDOFFS
+// Missing service links stay visible as unavailable demo actions.
+// ===============================================================
+
+export default function SermonPlayer({
+  youtubeUrl,
+  mixlrUrl,
+  mediaAvailable = false,
+}: SermonPlayerProps) {
+  const ui = useGivingStyles();
+  const [notice, setNotice] = useState('');
+
+  async function openProvider(
+    provider: 'YouTube' | 'Mixlr',
+    url: string | undefined,
+  ) {
+    setNotice('');
+    if (!mediaAvailable || !url) {
+      setNotice(
+        `${provider} playback is unavailable in this demo or after its service window.`,
+      );
       return;
     }
-    const operation = operations.current.begin();
-    const current = () =>
-      focused.current &&
-      AppState.currentState === 'active' &&
-      operations.current.isCurrent(operation);
+
+    const providerKey = provider === 'YouTube' ? 'youtube' : 'mixlr';
+    if (!isAllowedProviderUrl(url, providerKey)) {
+      setNotice(
+        `This ${provider} link is invalid. Ask the church to update it.`,
+      );
+      return;
+    }
+
     try {
-      setError('');
-      await startGuardedDemoPlayback({
-        configure: () =>
-          setAudioModeAsync({
-            playsInSilentMode: true,
-            allowsRecording: false,
-            shouldPlayInBackground: false,
-          }),
-        atEnd: status.currentTime >= status.duration - 0.1,
-        seekToStart: () => player.seekTo(0),
-        isCurrent: current,
-        play: () => player.play(),
-      });
+      await Linking.openURL(url);
     } catch {
-      if (current())
-        setError('Audio could not play. Check your output device and retry.');
+      setNotice(`${provider} could not open. Check your connection and retry.`);
     }
   }
 
-  // ===============================================================
-  // PLAYER FEEDBACK AND TRANSPORT BUTTONS
-  // ===============================================================
-
   return (
     <View style={ui.card}>
-      <Text style={ui.heading}>Player preview</Text>
+      <Text style={ui.heading}>Watch or listen to the service</Text>
       <Text style={ui.body}>
-        This six-second sound tests the player controls. It is a quiet musical
-        tone, not a church sermon. Audio stops when you leave this screen or
-        background the app.
+        Video opens through YouTube. Audio-only service links open through
+        Mixlr. Provider links have not been published to this demo yet.
       </Text>
-      <Text accessibilityLiveRegion="polite" style={ui.label}>
-        {status.isBuffering
-          ? 'Buffering…'
-          : status.playing
-            ? 'Playing sample audio'
-            : status.isLoaded
-              ? 'Ready'
-              : 'Loading sample audio…'}
-      </Text>
-      <Text style={ui.body}>
-        {Math.floor(status.currentTime || 0)} /{' '}
-        {Math.round(status.duration || 0)} seconds
-      </Text>
-      {(error || status.error) && (
-        <Text accessibilityRole="alert" style={ui.error}>
-          {error || status.error}
+      <GivingButton
+        label="Watch on YouTube"
+        onPress={() => void openProvider('YouTube', youtubeUrl)}
+      />
+      <GivingButton
+        label="Listen on Mixlr"
+        secondary
+        onPress={() => void openProvider('Mixlr', mixlrUrl)}
+      />
+      {!!notice && (
+        <Text accessibilityLiveRegion="polite" style={ui.caption}>
+          {notice}
         </Text>
       )}
-      {(error || status.error) && (
-        <GivingButton
-          label="Reload sample audio"
-          secondary
-          onPress={() => {
-            operations.current.invalidate();
-            player.pause();
-            setError('');
-            try {
-              player.replace(require('../assets/demo/player-sample.wav'));
-            } catch {
-              setError('Sample audio could not be reloaded.');
-            }
-          }}
-        />
-      )}
-      <GivingButton
-        label={status.playing ? 'Pause' : 'Play sample audio'}
-        disabled={!status.isLoaded}
-        onPress={() => {
-          void play();
-        }}
-      />
-      <GivingButton
-        label="Restart audio"
-        secondary
-        disabled={!status.isLoaded}
-        onPress={() => {
-          operations.current.invalidate();
-          player.pause();
-          void player.seekTo(0).catch(() => {
-            if (focused.current) setError('Could not restart audio.');
-          });
-        }}
-      />
-      <View style={ui.wrap}>
-        <GivingButton
-          label="Back 2 seconds"
-          secondary
-          disabled={!status.isLoaded}
-          onPress={() => {
-            void player
-              .seekTo(Math.max(0, status.currentTime - 2))
-              .catch(() => {
-                if (focused.current) setError('Could not seek audio.');
-              });
-          }}
-        />
-        <GivingButton
-          label="Forward 2 seconds"
-          secondary
-          disabled={!status.isLoaded}
-          onPress={() => {
-            void player
-              .seekTo(Math.min(status.duration, status.currentTime + 2))
-              .catch(() => setError('Could not seek audio.'));
-          }}
-        />
-      </View>
     </View>
   );
 }

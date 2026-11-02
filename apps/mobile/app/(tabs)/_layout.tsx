@@ -6,7 +6,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { useAppTheme } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
 
@@ -15,6 +15,7 @@ import { useReducedMotion } from '@/utils/use-reduced-motion';
 // ===============================================================
 
 export default function MemberTabsLayout() {
+  const { colors } = useAppTheme();
   const { demoAccess } = useMemberDraft();
   const reducedMotion = useReducedMotion();
 

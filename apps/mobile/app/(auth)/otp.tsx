@@ -5,7 +5,7 @@
 // ===============================================================
 
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   InputAccessoryView,
   Keyboard,
@@ -21,7 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BrandedLoader from '@/components/branded-loader';
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 import { useDemoTransition } from '@/utils/use-demo-transition';
 
@@ -34,6 +34,8 @@ const KEYBOARD_TOOLBAR_ID = 'verification-keyboard-toolbar';
 // ===============================================================
 
 export default function VerificationScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { openDemo } = useMemberDraft();
 
   const [code, setCode] = useState('');
@@ -189,103 +191,105 @@ export default function VerificationScreen() {
 // Preserve the church palette and existing keyboard controls.
 // ===============================================================
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flexGrow: 1,
-    padding: 24,
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.secondaryText,
-    marginBottom: 32,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    minHeight: 64,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    color: colors.text,
-    fontSize: 28,
-    letterSpacing: 8,
-    textAlign: 'center',
-  },
-  inputError: {
-    borderColor: colors.error,
-  },
-  button: {
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  buttonPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  buttonText: {
-    color: colors.onPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  feedback: {
-    marginTop: 12,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
-  },
-  errorText: {
-    color: colors.error,
-  },
-  notice: {
-    marginTop: 32,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
-  },
-  keyboardToolbar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: 12,
-  },
-  keyboardDoneButton: {
-    minWidth: 64,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  linkText: {
-    color: colors.link,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flexGrow: 1,
+      padding: 24,
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    description: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.secondaryText,
+      marginBottom: 32,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    input: {
+      minHeight: 64,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontSize: 28,
+      letterSpacing: 8,
+      textAlign: 'center',
+    },
+    inputError: {
+      borderColor: colors.error,
+    },
+    button: {
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 24,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+    },
+    buttonPressed: {
+      backgroundColor: colors.primaryPressed,
+    },
+    buttonText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    feedback: {
+      marginTop: 12,
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.secondaryText,
+    },
+    errorText: {
+      color: colors.error,
+    },
+    notice: {
+      marginTop: 32,
+      fontSize: 14,
+      lineHeight: 21,
+      color: colors.secondaryText,
+    },
+    keyboardToolbar: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingHorizontal: 12,
+    },
+    keyboardDoneButton: {
+      minWidth: 64,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+    },
+    linkText: {
+      color: colors.link,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

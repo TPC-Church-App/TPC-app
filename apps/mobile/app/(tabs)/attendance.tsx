@@ -10,7 +10,7 @@ import {
   GivingPage,
   GivingButton,
   GivingSheet,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import BrandedLoader from '@/components/branded-loader';
 import {
@@ -42,6 +42,7 @@ const labels: Record<AttendanceRecord['state'], string> = {
 // ===============================================================
 
 export default function AttendanceScreen() {
+  const ui = useGivingStyles();
   const {
     service,
     attempt,

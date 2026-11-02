@@ -24,6 +24,7 @@ import {
   type PaymentStatus,
 } from '@/utils/member-demo';
 import { DEMO_MESSAGES } from '@/constants/messages';
+import type { ThemePreference } from '@/constants/theme';
 
 // ===============================================================
 // BOUNDED DEVICE DEMO MODELS
@@ -37,6 +38,7 @@ export type Invitation = {
   status: 'prepared' | 'cancelled';
 };
 type Workspace = {
+  appearance: ThemePreference;
   preferences: Preferences;
   readIds: string[];
   payments: DemoPayment[];
@@ -44,6 +46,7 @@ type Workspace = {
   roster: 'unanswered' | 'accepted' | 'unavailable' | 'approved' | 'rejected';
 };
 const initial: Workspace = {
+  appearance: 'system',
   preferences: DEFAULT_PREFERENCES,
   readIds: [],
   payments: [],
@@ -59,7 +62,9 @@ function restore(value: unknown): Workspace {
   if (value === null) return initial;
   if (!value || typeof value !== 'object') throw new Error('Invalid workspace');
   const p = value as Workspace;
+  const appearance = p.appearance === undefined ? 'system' : p.appearance;
   if (
+    !['system', 'light', 'dark'].includes(appearance) ||
     !p.preferences ||
     Object.keys(DEFAULT_PREFERENCES).some(
       (k) => typeof p.preferences[k as keyof Preferences] !== 'boolean',
@@ -87,6 +92,7 @@ function restore(value: unknown): Workspace {
     throw new Error('Invalid workspace');
   return {
     ...p,
+    appearance,
     readIds: uniqueReadIds(
       p.readIds,
       DEMO_MESSAGES.map((m) => m.id),

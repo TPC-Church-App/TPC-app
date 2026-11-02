@@ -6,6 +6,8 @@ TPC Church App comprises a member mobile application and a planned web dashboard
 
 **Current stage:** Member frontend demo milestone; backend integration and release verification remain separate work.
 
+**Latest frontend update:** Giving categories and payment-history filters use compact bottom sheets; the giving amount validator targets a ₦500 minimum, shows that minimum only on invalid input, and keeps a single Paystack handoff preview. Latest formatting, TypeScript, test, Expo, export, and device/browser checks for this update must be rerun before its pull request.
+
 **Working mobile interface:** Branded onboarding and demo OTP; Home, editable/saved device Profile and photos, department review outcomes, Settings, Messages/Notifications, Sermons/player, Community badges and both sponsor invitation types, worker schedules, attendance scanner/history/witness/offline queue, and demo checkout/return/payment history/receipts.
 
 **Authentication status:** Supabase Auth integration pending. The application does not send OTP codes or create authenticated sessions.
@@ -273,6 +275,34 @@ Home and Attendance share one sample service schedule. The scanner recognises on
 Native attendance evidence and history persist in encrypted SecureStore chunks. The queue retains the scan timestamp, service snapshot and upload deadline. Web saves sample history but strips GPS coordinates; unuploaded GPS evidence needs a witness after web reload. No automatic upload or connectivity detection is claimed: sync and error buttons deliberately simulate server outcomes. The 24-hour deadline also applies to witnesses and retries.
 
 Witness screens allow only an eligible sample member who is verified and confirmed at the same service; no admin approval is required. Confirmed, rejected, expired and sync-error screens are demo outcomes. Production still needs signed service-specific QR passes, trusted server time, evidence assessment, eligibility/ownership checks, actual sync and durable server histories.
+
+Members may also ask an eligible verified regular attendee to help complete check-in when they lack a phone or data. The helper must act under their own authenticated account; never share credentials or silently impersonate the member. The backend must verify both member eligibility and the service, record who assisted whom, prevent duplicate attendance, and return a clear confirmation/error result. Product policy must define whether the helper enters a member PIN issued at the usher table, confirms a QR scan, or chooses either method. The member PIN must be short-lived/service-bound or otherwise protected against reuse; an usher-issued PIN must not become an admin approval gate.
+
+### Service schedule and pastoral content
+
+- The Home service card expands inline to a Sunday-through-Saturday timetable. The current demo shows its single sample Sunday service and labels the other days as having no sample entry.
+- Authorized admins can create, edit, publish, unpublish, and archive service schedule entries. The server owns publication, timezone, recurrence, and schedule ordering; the client only renders the current schedule.
+- The Sermons screen previews the planned YouTube video handoff, Mixlr audio-only handoff, sermon theme, Bible passages, pastor notes, and bookmark interaction. It accepts only HTTPS links on the matching provider domains.
+- Each entry includes the service date, title/topic, main theme, Bible passages, pastor/message details, media links, and publication/expiry times.
+- Live streams and recordings/media links should stop appearing in the member app 24 hours after the relevant service ends. Confirm the retention/deletion policy with church leadership and the backend owner; hiding an item in the UI does not delete the provider's recording.
+- Only use the official embedded/remote players and authorized media. Do not download or rehost YouTube media without the required rights.
+
+The timetable and sermon library remain local sample UI. No admin schedule editor, published service data, provider URLs, embedded in-app video player, Mixlr stream, server-managed pastor notes, or 24-hour expiry enforcement exists yet. A media link opens the external provider only when the backend supplies an authorized URL and confirms that the service media window remains open; expired/unavailable demo actions explain why playback cannot start.
+
+### Profile badges and roles
+
+- Profile may display a visitor sticker, regular-attendee badge, department membership badge, or pastor/staff designation when appropriate.
+- The backend assigns and authorizes role/department designations. Client profile edits must never grant pastor, staff, or department access.
+- Define which badges are public to other members, which require member consent, how visitors are represented, and how revoked/expired roles disappear. Do not expose a sensitive role by default without an agreed visibility policy.
+- Department badges appear only after the required admin approval and server assignment. Ordinary member access remains immediate after OTP verification.
+
+### Checkout and settings
+
+- Keep the payment interface focused on gift purpose, amount, campaign context, and one secure Paystack Checkout handoff. Paystack configuration and customer/device eligibility decide which payment methods appear; the TPC app must not promise unavailable channels or collect raw card credentials itself.
+- Settings includes System, Light, and Dark appearance choices. The selected local demo preference persists on the device and updates onboarding, tabs, menus, forms, sheets, loaders, status bar, and shared surfaces. The supplied dark logo appears in the welcome, member-page and loader branding.
+- Device/browser contrast, system-following behavior, text scaling and reduced-motion acceptance still need a manual visual pass. Account, privacy and notification delivery controls await backend integration.
+
+The current Settings screen contains demo notification toggles, accessibility notes, demo-data reset and the local appearance selector. It has no authenticated account controls. The current giving checkout remains a local preview.
 
 Failed saved-data loading blocks new writes until retry succeeds or the member explicitly resets demo data. Reset uses a separate recovery path, including corrupted native metadata. The queue holds up to 30 records. “Start another sample service” creates a new service without deleting history. Settings can clear saved demo data. Pure rule tests cover time boundaries and transitions; the latest batch still needs the manual test/device checks in the handoff.
 
@@ -615,22 +645,26 @@ The checks in this subsection indicate source written, not tests passed.
 - [x] Build editable Profile, explicit saved device profile/photo controls and department pending/approved/rejected demos.
 - [x] Build Settings and saved notification preferences.
 - [x] Build announcement list/details, weekly messages and read/unread notification views.
-- [x] Build sample sermons, real controls over bundled test audio and session bookmarks.
+- [x] Build sample sermon notes with themes, passages, pastor-note previews, bookmarks and safe YouTube/Mixlr link handoffs. No provider media is configured.
+- [x] Make the Home service card expand/collapse a Sunday-to-Saturday demo timetable; only the sample Sunday service has data.
+- [x] Add saved System/Light/Dark appearance across active member/auth screens, menus, sheets, loaders and navigation bars with light/dark church logos.
 - [x] Build demo badges, newcomer invitations and financial-sponsorship request forms.
 - [x] Build sample worker availability responses and department schedules behind demo approval.
 - [x] Build attendance history, confirmed/rejected views, eligible-witness request/confirmation and persistent native queue/error/retry states.
 - [x] Build demo checkout, explicit return processing, all documented provider statuses, saved demo history and receipt eligibility.
 - [x] Add regression test source for payment ownership/replay, profile rules, witness eligibility, queue transitions and menu destinations.
 - [x] Correct name-limit consistency, blocked writes after loading failure, corrupt-storage recovery, schedule shortcut focus and async playback cancellation.
-- [x] Add recovery/lifecycle regression source, bringing the Node suite to 41 cases; execution of the final snapshot remains pending.
+- [x] Add recovery/lifecycle regression source, bringing the Node suite to 41 cases; those checks passed before the latest giving-sheet changes and must be rerun for the current snapshot.
 - [x] Standardize frontend filename/purpose banners and meaningful section comments; clarify inactive parked routes.
 - [x] Install the new Expo modules and update the mobile lockfile (manifest/installed-module presence checked).
-- [ ] Run Prettier write/check, TypeScript, all 41 regression tests, Expo compatibility/doctor and iOS/web exports after the final fixes.
+- [ ] Run Prettier write/check, TypeScript, all regression tests, Expo compatibility/doctor and iOS/web exports after the latest giving-sheet changes.
 - [x] Receive user confirmation that final iPhone and browser acceptance passed (31 October 2026; manually reported).
-- [ ] Review the full branch diff, commit/push manually and obtain partner review into `dev`.
+- [ ] Create a focused feature branch from updated `dev`, review the full diff, commit/push manually and obtain partner review into `dev` for the latest giving UI fix.
 - [ ] Integrate real authentication, accounts, approvals, content, signed QRs, sync, payment checkout and receipts with agreed backend contracts.
 - [ ] Initialize and implement the separate staff dashboard, reports, member/service/fund administration and staff permission flows.
-- [ ] Verify production accessibility, performance, device permissions, native launch artwork and distribution; automatic dark mode remains unimplemented.
+- [ ] Complete current iPhone/browser checks for the new timetable, sermon actions and all three appearances; verify large text, contrast, system theme changes and reduced motion.
+- [ ] Connect published schedule/media APIs, admin-managed service data, authorized YouTube/Mixlr URLs, embedded video if selected, and server-enforced 24-hour media visibility.
+- [ ] Verify production accessibility, performance, device permissions, native launch artwork and distribution.
 
 ### Documentation, testing and release
 
@@ -688,9 +722,9 @@ Preserve useful generated configuration comments. Do not manually comment lockfi
 
 ## Contribution workflow
 
-Current milestone history: [MEMBER-UI-CHANGELOG.md](docs/MEMBER-UI-CHANGELOG.md). Copy-ready PR title/body: [PR-MEMBER-UI.md](docs/PR-MEMBER-UI.md). Replace its pending validation entries with actual results before submitting.
+The member demo milestone was merged into `dev` by the partner (merge commit `9b4d8b8`, PR #4). The latest giving UI fix is a separate uncommitted change. See [member UI history](docs/MEMBER-UI-CHANGELOG.md), [backend read-first handoff](docs/READ-FIRST-BACKEND-HANDOFF.md), and the new [giving UI PR title/body](docs/PR-GIVING-UI.md). Update its validation table with the latest manual command results before submitting.
 
-The current member UI work is on `chore/member-home-ui`. The foundation milestone was already merged into `dev`.
+The previous member UI work on `chore/member-home-ui` has been merged into `dev`. The current giving UI changes are on the local `dev` worktree until a new feature branch is created; do not push these changes directly to `dev`.
 
 1. Inspect branch status and preserve outstanding work.
 2. Complete milestone checks and documentation.
@@ -727,6 +761,8 @@ Live streaming, chat/social features, full accounting/payroll, inventory and rep
 - [Deployment preparation guide](docs/DEPLOYMENT.md)
 - [Supabase documentation](https://supabase.com/docs)
 - [Member UI handoff and manual commands](docs/MEMBER-UI-HANDOFF.md)
+- [Read first: backend handoff and requested frontend acceptance](docs/READ-FIRST-BACKEND-HANDOFF.md)
+- [Giving UI pull request title and description](docs/PR-GIVING-UI.md)
 - [Member UI acceptance cases](docs/MEMBER-UI-TEST-PLAN.md)
 - [Expo documentation](https://docs.expo.dev)
 - [React Native documentation](https://reactnative.dev)

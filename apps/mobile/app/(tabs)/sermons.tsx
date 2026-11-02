@@ -1,33 +1,37 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/sermons.tsx
-// Browse sample teachings and open playback controls.
+// Browse sermon notes and preview YouTube/Mixlr media handoffs.
 // ===============================================================
 
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+
 import {
-  GivingPage,
   GivingButton,
   GivingChoice,
-  givingStyles as ui,
+  GivingPage,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import SermonPlayer from '@/components/sermon-player';
+
 const sermons = [
   {
     id: 'faith',
     title: 'A life of faith',
-    speaker: 'Sample teaching',
-    scripture: 'Hebrews 11:1',
-    summary:
-      'A sample outline about trusting God, prayer and living out faith in everyday choices.',
+    theme: 'Trusting God through every season',
+    speaker: 'Pastor · sample entry',
+    passages: ['Hebrews 11:1', 'Proverbs 3:5–6'],
+    notes:
+      'Faith shapes how we pray, make daily choices and encourage one another. These notes are a sample outline and are not a transcript of a recorded service.',
   },
   {
     id: 'community',
     title: 'Growing together',
-    speaker: 'Sample teaching',
-    scripture: 'Hebrews 10:24–25',
-    summary:
-      'A sample outline about encouragement, fellowship and serving our neighbours.',
+    theme: 'Encouragement, fellowship and service',
+    speaker: 'Pastor · sample entry',
+    passages: ['Hebrews 10:24–25', 'Galatians 6:2'],
+    notes:
+      'Christian community grows through shared worship, practical care and faithful service. This sample outline will be replaced by the approved weekly message.',
   },
 ];
 
@@ -36,73 +40,106 @@ const sermons = [
 // ===============================================================
 
 export default function SermonsScreen() {
+  const ui = useGivingStyles();
   const [id, setId] = useState('faith');
   const [query, setQuery] = useState<'all' | 'saved'>('all');
   const [saved, setSaved] = useState<string[]>([]);
-  const chosen = sermons.find((s) => s.id === id)!;
-  const rows = sermons.filter((s) => query === 'all' || saved.includes(s.id));
+  const chosen = sermons.find((sermon) => sermon.id === id) ?? sermons[0];
+  const rows = sermons.filter(
+    (sermon) => query === 'all' || saved.includes(sermon.id),
+  );
 
   // ===============================================================
-  // TEACHING LIBRARY AND PLAYER INTERFACE
+  // MESSAGE NOTES AND MEDIA PREVIEW
   // ===============================================================
 
   return (
     <GivingPage
       title="Sermons & teaching"
-      subtitle="Make space for the Word through the week."
+      subtitle="Message notes, Bible passages and service media."
       sectionLabel="SERMONS"
     >
-      <Text style={ui.caption}>
-        Demo library · No real sermon recordings are connected. Bookmarks last
-        for this screen session.
-      </Text>
-      <View style={ui.wrap}>
-        <GivingChoice
-          label="All teachings"
-          selected={query === 'all'}
-          onPress={() => setQuery('all')}
-        />
-        <GivingChoice
-          label="Bookmarked"
-          selected={query === 'saved'}
-          onPress={() => setQuery('saved')}
-        />
+      <View style={ui.card}>
+        <Text style={ui.eyebrow}>DEMO LIBRARY</Text>
+        <Text style={ui.body}>
+          These sample entries show the planned format. No pastor message or
+          published recording is connected yet.
+        </Text>
+        <View style={ui.wrap}>
+          <GivingChoice
+            label="All teachings"
+            selected={query === 'all'}
+            onPress={() => setQuery('all')}
+          />
+          <GivingChoice
+            label="Bookmarked"
+            selected={query === 'saved'}
+            onPress={() => setQuery('saved')}
+          />
+        </View>
       </View>
+
       {rows.length ? (
-        rows.map((s) => (
-          <View key={s.id} style={ui.card}>
-            <Text style={ui.heading}>{s.title}</Text>
-            <Text style={ui.body}>
-              {s.speaker} · {s.scripture}
+        rows.map((sermon) => (
+          <View key={sermon.id} style={ui.card}>
+            <Text style={ui.heading}>{sermon.title}</Text>
+            <Text style={ui.body}>{sermon.theme}</Text>
+            <Text style={ui.caption}>
+              {sermon.speaker} · {sermon.passages.join(' · ')}
             </Text>
             <GivingButton
-              label={id === s.id ? 'Selected teaching' : 'Open teaching'}
+              label={id === sermon.id ? 'Selected message' : 'Open message'}
               secondary
-              onPress={() => setId(s.id)}
+              onPress={() => setId(sermon.id)}
             />
             <GivingButton
               label={
-                saved.includes(s.id) ? 'Remove bookmark' : 'Bookmark teaching'
+                saved.includes(sermon.id)
+                  ? 'Remove bookmark'
+                  : 'Bookmark message'
               }
               secondary
               onPress={() =>
-                setSaved((v) =>
-                  v.includes(s.id) ? v.filter((i) => i !== s.id) : [...v, s.id],
+                setSaved((current) =>
+                  current.includes(sermon.id)
+                    ? current.filter((savedId) => savedId !== sermon.id)
+                    : [...current, sermon.id],
                 )
               }
             />
           </View>
         ))
       ) : (
-        <Text style={ui.body}>
-          No bookmarked teachings yet. Open All teachings to choose one.
-        </Text>
+        <View style={ui.card}>
+          <Text style={ui.heading}>No bookmarks yet</Text>
+          <Text style={ui.body}>
+            Choose All teachings and bookmark a message to find it here.
+          </Text>
+        </View>
       )}
+
       <View style={ui.card}>
-        <Text style={ui.heading}>{chosen.title}</Text>
-        <Text style={ui.body}>{chosen.summary}</Text>
+        <Text style={ui.eyebrow}>SUNDAY MESSAGE · SAMPLE</Text>
+        <Text style={ui.caption}>
+          Service date: awaiting a published church schedule.
+        </Text>
+        <Text accessibilityRole="header" style={ui.heading}>
+          {chosen.title}
+        </Text>
+        <Text style={ui.label}>Theme: {chosen.theme}</Text>
+        <Text style={ui.body}>{chosen.speaker}</Text>
+        <Text style={ui.label}>Bible passages</Text>
+        <Text style={ui.body}>{chosen.passages.join(' · ')}</Text>
+        <Text style={ui.label}>Pastor’s notes</Text>
+        <Text style={ui.body}>{chosen.notes}</Text>
+        <Text style={ui.caption}>
+          Service recordings and audio links follow a 24-hour period after the
+          service ends. This screen previews that policy; server expiry is not
+          connected.
+        </Text>
       </View>
-      <SermonPlayer key={id} />
+
+      <SermonPlayer />
     </GivingPage>
   );
 }

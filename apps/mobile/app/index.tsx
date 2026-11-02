@@ -3,6 +3,7 @@
 // Display church branding and provide registration/sign-in entry.
 // ===============================================================
 
+import { useMemo } from 'react';
 import { router } from 'expo-router';
 import {
   Image,
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 
 // ===============================================================
@@ -24,6 +25,8 @@ import { useMemberDraft } from '@/store/member-draft';
 // ===============================================================
 
 export default function WelcomeScreen() {
+  const { colors, scheme } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { setEntryMode } = useMemberDraft();
 
   function startRegistration() {
@@ -44,7 +47,11 @@ export default function WelcomeScreen() {
             <View style={styles.innerRing}>
               <View style={styles.logoFrame}>
                 <Image
-                  source={require('../assets/light/church-logo.png')}
+                  source={
+                    scheme === 'dark'
+                      ? require('../assets/dark/church-logo.png')
+                      : require('../assets/light/church-logo.png')
+                  }
                   style={styles.logo}
                   resizeMode="contain"
                   accessibilityLabel="The Pentecostal Congregation logo"
@@ -57,9 +64,7 @@ export default function WelcomeScreen() {
             TPC
           </Text>
 
-          <Text style={styles.tagline}>
-            A place to belong. A faith to live.
-          </Text>
+          <Text style={styles.tagline}>JESUS CHRIST IS THE CORNERSTONE.</Text>
         </View>
 
         <View style={styles.footer}>
@@ -97,113 +102,115 @@ export default function WelcomeScreen() {
 // Use open space, fine circular borders and the church palette.
 // ===============================================================
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    alignItems: 'center',
-  },
-  brand: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 48,
-    width: '100%',
-  },
-  outerRing: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  innerRing: {
-    width: 212,
-    height: 212,
-    borderRadius: 106,
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoFrame: {
-    width: 184,
-    height: 184,
-    borderRadius: 92,
-    overflow: 'hidden',
-    backgroundColor: colors.surface,
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-  },
-  title: {
-    marginTop: 28,
-    fontSize: 40,
-    lineHeight: 50,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  tagline: {
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 23,
-    textAlign: 'center',
-    color: colors.secondaryText,
-  },
-  footer: {
-    width: '100%',
-    maxWidth: 320,
-    alignItems: 'center',
-    paddingTop: 24,
-  },
-  button: {
-    width: '100%',
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  buttonPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onPrimary,
-  },
-  signInButton: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    marginTop: 8,
-  },
-  signInPressed: {
-    opacity: 0.7,
-  },
-  signInText: {
-    color: colors.link,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  motto: {
-    marginTop: 24,
-    fontSize: 11,
-    lineHeight: 18,
-    letterSpacing: 1.5,
-    textAlign: 'center',
-    color: colors.secondaryText,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 32,
+      alignItems: 'center',
+    },
+    brand: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 48,
+      width: '100%',
+    },
+    outerRing: {
+      width: 240,
+      height: 240,
+      borderRadius: 120,
+      borderWidth: 1,
+      borderColor: colors.decorativeBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    innerRing: {
+      width: 212,
+      height: 212,
+      borderRadius: 106,
+      borderWidth: 1,
+      borderColor: colors.decorativeBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoFrame: {
+      width: 184,
+      height: 184,
+      borderRadius: 92,
+      overflow: 'hidden',
+      backgroundColor: colors.surface,
+    },
+    logo: {
+      width: '100%',
+      height: '100%',
+    },
+    title: {
+      marginTop: 28,
+      fontSize: 40,
+      lineHeight: 50,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    tagline: {
+      marginTop: 10,
+      fontSize: 15,
+      lineHeight: 23,
+      textAlign: 'center',
+      color: colors.secondaryText,
+    },
+    footer: {
+      width: '100%',
+      maxWidth: 320,
+      alignItems: 'center',
+      paddingTop: 24,
+    },
+    button: {
+      width: '100%',
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+    },
+    buttonPressed: {
+      backgroundColor: colors.primaryPressed,
+    },
+    buttonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.onPrimary,
+    },
+    signInButton: {
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      marginTop: 8,
+    },
+    signInPressed: {
+      opacity: 0.7,
+    },
+    signInText: {
+      color: colors.link,
+      fontSize: 15,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    motto: {
+      marginTop: 24,
+      fontSize: 11,
+      lineHeight: 18,
+      letterSpacing: 1.5,
+      textAlign: 'center',
+      color: colors.secondaryText,
+    },
+  });
+}

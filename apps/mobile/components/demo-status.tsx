@@ -4,7 +4,7 @@
 // ===============================================================
 
 import { Text, View } from 'react-native';
-import { GivingButton, givingStyles as ui } from '@/components/giving-ui';
+import { GivingButton, useGivingStyles } from '@/components/giving-ui';
 import { useDemoWorkspace } from '@/store/demo-workspace';
 
 // ===============================================================
@@ -12,6 +12,7 @@ import { useDemoWorkspace } from '@/store/demo-workspace';
 // ===============================================================
 
 export default function DemoStatus() {
+  const ui = useGivingStyles();
   const { ready, error, busy, canReset, retryLoad } = useDemoWorkspace();
   return (
     <View>

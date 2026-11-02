@@ -8,7 +8,7 @@ import { Text, View } from 'react-native';
 import {
   GivingPage,
   GivingButton,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import { useDemoWorkspace } from '@/store/demo-workspace';
 import { receiptAvailable } from '@/utils/member-demo';
@@ -20,6 +20,7 @@ import { GIVING_CATEGORIES, type GivingCategory } from '@/constants/giving';
 // ===============================================================
 
 export default function ReceiptScreen() {
+  const ui = useGivingStyles();
   const { reference } = useLocalSearchParams<{ reference?: string }>();
   const { data, ready } = useDemoWorkspace();
   const p = data.payments.find((r) => r.reference === reference);

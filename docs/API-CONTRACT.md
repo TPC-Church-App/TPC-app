@@ -1,6 +1,6 @@
 # TPC Church App - API Contract
 
-**Revision:** 1.2 (30 October 2026)
+**Revision:** 1.3 (2 November 2026)
 **Status:** Repository implementation reference; hosted behaviour unverified.
 
 ## Boundaries
@@ -64,8 +64,10 @@ Example body (synthetic values):
 }
 ```
 
-- `amount`: numeric naira, 100 to 1,000,000 inclusive, at most two decimals.
-  These are current code limits; final configurable product limits remain open.
+- `amount`: target numeric naira range is 500 to 1,000,000 inclusive, at most
+  two decimals. The current handler still accepts ₦100; the backend owner must
+  change and test that rule before live integration. The server must enforce
+  ₦500 independently and return a clear validation error below the minimum.
 - `fund_id`: UUID of an existing active fund. The example UUID is not seed data.
 - `email`: checkout email when Auth supplies none. The handler prefers `user.email`.
 - Ownership, reference, NGN currency and pending status are assigned server-side.
@@ -160,6 +162,8 @@ Define and test each contract before its frontend integration:
 - Phone/email OTP request, verification, session refresh, logout and recovery.
 - Profile completion and immediate ordinary-member access.
 - Service discovery, service-specific QR passes and check-in windows.
+- Published Sunday-through-Saturday service schedules with timezone and admin-managed revisions.
+- Sermon/message entries with service date, topic/theme, Bible passages, pastor notes, authorized YouTube/Mixlr URLs and a server-owned 24-hour-after-service-end availability decision (for example, an `is_media_available` response field derived from trusted server time).
 - Consent-based offline evidence, upload within 24 hours of service end,
   duplicate handling and eligible-member witness confirmation.
 - Histories, receipts, notifications and staff operations.
@@ -176,10 +180,10 @@ The backend owner must agree a fund/campaign discovery contract before live chec
 
 History needs cursor pagination, fund/category snapshots, integer minor-unit amount, currency, reference, created/updated timestamps and authoritative payment status. Receipts need a server-owned receipt identifier and eligibility decision; client return parameters and HTTP 200 alone never establish success. Map all statuses documented above. Demo replay rules only protect the local preview and do not implement reconciliation or refunds.
 
-Remaining member contracts also need media/content URLs and permissions, notification/read/preference semantics, profile/photo storage limits, department request decisions and server-granted roles, roster availability/approval states, both newcomer and financial-sponsorship invitations, and witness eligibility/consent. Financial sponsorship must not imply approval or funding from a prepared request. Contact details, bank information and staff roles must not be inferred from demo data.
+Remaining member contracts also need notification/read/preference semantics, profile/photo storage limits, department request decisions and server-granted roles, roster availability/approval states, both newcomer and financial-sponsorship invitations, and witness eligibility/consent. Media needs a server-owned expiry response; hiding an expired link in the app does not delete the provider recording. Financial sponsorship must not imply approval or funding from a prepared request. Contact details, bank information and staff roles must not be inferred from demo data.
 
 ## Partner review required before live integration
 
-The member demo UI is ready to be reviewed against these proposed contracts, subject to its final validation. No agreement is recorded on behalf of the backend owner. Confirm: (1) phone/email OTP request/verification/resend, expiry, error codes and session response; (2) profile creation/fetch/update and photo storage; (3) service-specific signed QR, trusted time, witness eligibility and offline evidence/idempotency; (4) active fund/campaign discovery, checkout return, reconciliation, paginated history and receipt eligibility; (5) department/roster decisions and server-owned permissions; (6) content/media, read-state/preferences, badges and both sponsorship/invitation types.
+The member demo UI is ready to be reviewed against these proposed contracts, subject to its final validation. No agreement is recorded on behalf of the backend owner. Confirm: (1) phone/email OTP request/verification/resend, expiry, error codes and session response; (2) profile creation/fetch/update and photo storage; (3) service schedule/timezone/revisions, sermon/media fields, provider URL allowlists and media expiry; (4) service-specific signed QR, trusted time, witness eligibility and offline evidence/idempotency; (5) active fund/campaign discovery, checkout return, reconciliation, paginated history and receipt eligibility; (6) department/roster decisions and server-owned permissions; (7) read/preferences, badges and both sponsorship/invitation types.
 
 Confirm successful, pending, rejected, expired, denied, network-error and retry responses for each relevant flow. The frontend owner connects these APIs and tests integrated behaviour after the backend owner supplies them. Native demo recovery and mock results do not establish production authentication or financial integrity.

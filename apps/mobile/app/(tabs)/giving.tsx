@@ -15,14 +15,15 @@ import {
   GivingChoice,
   GivingPage,
   GivingSheet,
-  givingStyles as ui,
+  GivingSelectionSheet,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import {
   GIVING_CATEGORIES,
   GIVING_FUNDS,
   type GivingFund,
 } from '@/constants/giving';
-import { colors } from '@/constants/theme';
+import { useAppTheme } from '@/constants/theme';
 import { formatGivingAmount, parseGivingAmount } from '@/utils/giving';
 
 type Review = { fund: GivingFund; amountMinor: number; email: string };
@@ -32,6 +33,8 @@ type Review = { fund: GivingFund; amountMinor: number; email: string };
 // ===============================================================
 
 export default function GivingScreen() {
+  const ui = useGivingStyles();
+  const { colors } = useAppTheme();
   const { startPayment, ready, busy } = useDemoWorkspace();
   const focused = useRef(false);
   const checkoutGeneration = useRef(0);
@@ -54,6 +57,7 @@ export default function GivingScreen() {
   const [amount, setAmount] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [fundPickerOpen, setFundPickerOpen] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState('');
   const activeFunds = GIVING_FUNDS.filter((fund) => fund.isActive);
@@ -91,38 +95,10 @@ export default function GivingScreen() {
   }
 
   // ===============================================================
-  // SELECTABLE FUND CARDS
+  // COMPACT GIVING FUND SELECTOR
   // ===============================================================
 
-  function renderFund(fund: GivingFund) {
-    const selected = fundId === fund.id;
-    return (
-      <Pressable
-        key={fund.id}
-        accessibilityRole="radio"
-        accessibilityLabel={fund.name}
-        accessibilityState={{ checked: selected }}
-        onPress={() => {
-          setFundId(fund.id);
-          setError('');
-        }}
-        style={({ pressed }) => [
-          ui.card,
-          selected && ui.selected,
-          pressed && ui.pressed,
-        ]}
-      >
-        <View style={ui.row}>
-          <Text style={ui.heading}>{fund.name}</Text>
-          {selected && <Text style={ui.link}>Selected</Text>}
-        </View>
-        <Text style={ui.body}>{fund.description}</Text>
-        {fund.category === 'program' && (
-          <Text style={ui.caption}>Sample campaign</Text>
-        )}
-      </Pressable>
-    );
-  }
+  const selectedFund = activeFunds.find((fund) => fund.id === fundId);
 
   // ===============================================================
   // GIVING AND REVIEW INTERFACE
@@ -145,26 +121,16 @@ export default function GivingScreen() {
           </Text>
         </View>
 
-        <Text accessibilityRole="header" style={ui.heading}>
-          Choose your giving
-        </Text>
-        <View accessibilityRole="radiogroup" style={ui.stack}>
-          {activeFunds
-            .filter((fund) => fund.category !== 'program')
-            .map(renderFund)}
-        </View>
-
-        {activeFunds.some((fund) => fund.category === 'program') && (
-          <>
-            <Text accessibilityRole="header" style={ui.heading}>
-              Programs & campaigns
-            </Text>
-            <View accessibilityRole="radiogroup" style={ui.stack}>
-              {activeFunds
-                .filter((fund) => fund.category === 'program')
-                .map(renderFund)}
-            </View>
-          </>
+        <Text style={ui.label}>Giving type</Text>
+        <GivingButton
+          label={
+            selectedFund ? `${selectedFund.name}  ▾` : 'Choose a giving type  ▾'
+          }
+          secondary
+          onPress={() => setFundPickerOpen(true)}
+        />
+        {selectedFund && (
+          <Text style={ui.caption}>{selectedFund.description}</Text>
         )}
 
         <View style={ui.card}>
@@ -183,7 +149,7 @@ export default function GivingScreen() {
             maxLength={24}
           />
           <Text style={ui.caption}>
-            Enter ₦100–₦1,000,000, with up to two decimal places.
+            Enter an amount with up to two decimal places.
           </Text>
           <View style={ui.wrap}>
             {[500, 1000, 5000].map((value) => (
@@ -238,6 +204,43 @@ export default function GivingScreen() {
         />
       </GivingPage>
 
+      <GivingSelectionSheet
+        title="Choose a giving type"
+        visible={fundPickerOpen}
+        onClose={() => setFundPickerOpen(false)}
+      >
+        <Text style={ui.body}>
+          Choose where you would like your gift to go.
+        </Text>
+        {activeFunds.map((fund) => (
+          <Pressable
+            key={fund.id}
+            accessibilityRole="radio"
+            accessibilityLabel={fund.name}
+            accessibilityState={{ checked: fundId === fund.id }}
+            onPress={() => {
+              setFundId(fund.id);
+              setError('');
+              setFundPickerOpen(false);
+            }}
+            style={({ pressed }) => [
+              ui.card,
+              fundId === fund.id && ui.selected,
+              pressed && ui.pressed,
+            ]}
+          >
+            <View style={ui.row}>
+              <Text style={ui.heading}>{fund.name}</Text>
+              {fundId === fund.id && <Text style={ui.link}>Selected</Text>}
+            </View>
+            <Text style={ui.body}>{fund.description}</Text>
+            {fund.category === 'program' && (
+              <Text style={ui.caption}>Sample campaign</Text>
+            )}
+          </Pressable>
+        ))}
+      </GivingSelectionSheet>
+
       <GivingSheet
         title="Review your giving"
         visible={review !== null}
@@ -257,11 +260,13 @@ export default function GivingScreen() {
               <Text style={ui.body}>{review.email}</Text>
             </View>
             <Text style={ui.body}>
-              Check the fund, amount and email before proceeding. This preview
-              cannot charge you.
+              Check the fund, amount and email before proceeding. In the live
+              app, one secure Paystack Checkout handoff will show payment
+              methods enabled for the church account and supported by your
+              device. This preview does not start checkout or charge you.
             </Text>
             <GivingButton
-              label="Continue to demo payment"
+              label="Continue to checkout preview"
               disabled={!ready || busy}
               onPress={async () => {
                 if (checkoutPending.current) return;

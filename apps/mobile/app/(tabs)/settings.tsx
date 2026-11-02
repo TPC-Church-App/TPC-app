@@ -8,15 +8,16 @@ import { Text, View, Switch } from 'react-native';
 import {
   GivingPage,
   GivingButton,
+  GivingChoice,
   GivingSheet,
-  givingStyles as ui,
+  useGivingStyles,
 } from '@/components/giving-ui';
 import DemoStatus from '@/components/demo-status';
 import { useDemoWorkspace } from '@/store/demo-workspace';
 import { useMemberDraft } from '@/store/member-draft';
 import { useAttendanceDraft } from '@/store/attendance-draft';
 import { DEFAULT_PREFERENCES, type Preferences } from '@/utils/member-demo';
-import { colors } from '@/constants/theme';
+import { useAppTheme } from '@/constants/theme';
 const labels: Record<keyof Preferences, string> = {
   announcements: 'Church announcements',
   weekly: 'Weekly church messages',
@@ -30,6 +31,8 @@ const labels: Record<keyof Preferences, string> = {
 // ===============================================================
 
 export default function SettingsScreen() {
+  const ui = useGivingStyles();
+  const { colors } = useAppTheme();
   const { data, commit, ready, busy, reset, canReset } = useDemoWorkspace();
   const profile = useMemberDraft();
   const { clearSavedProfile } = profile;
@@ -77,6 +80,32 @@ export default function SettingsScreen() {
       sectionLabel="PREFERENCES"
     >
       <DemoStatus />
+      <View style={ui.card}>
+        <Text style={ui.heading}>Appearance</Text>
+        <Text style={ui.body}>
+          Choose a theme for this device, or follow its current system setting.
+          Your choice stays in this local demo.
+        </Text>
+        <View style={ui.wrap}>
+          {(['system', 'light', 'dark'] as const).map((appearance) => (
+            <GivingChoice
+              key={appearance}
+              label={
+                appearance === 'system'
+                  ? 'System'
+                  : appearance === 'light'
+                    ? 'Light'
+                    : 'Dark'
+              }
+              selected={data.appearance === appearance}
+              disabled={!ready || busy}
+              onPress={() => {
+                void commit((current) => ({ ...current, appearance }));
+              }}
+            />
+          ))}
+        </View>
+      </View>
       {(attendance.error || profile.storageError) && (
         <View style={ui.card}>
           <Text style={ui.heading}>Saved data recovery</Text>

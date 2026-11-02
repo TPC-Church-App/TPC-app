@@ -5,7 +5,7 @@
 // ===============================================================
 
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { File, Paths } from 'expo-file-system';
 import {
@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { useAppTheme, type ThemeColors } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 
 // ===============================================================
@@ -25,6 +25,8 @@ import { useMemberDraft } from '@/store/member-draft';
 // ===============================================================
 
 export default function ProfilePhoto() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { draft, updateDraft, sessionToken, isCurrentSession } =
     useMemberDraft();
   const mounted = useRef(false);
@@ -219,40 +221,42 @@ export default function ProfilePhoto() {
 // PROFILE PHOTO STYLES
 // ===============================================================
 
-const styles = StyleSheet.create({
-  container: { alignItems: 'center', gap: 8, width: '100%' },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    overflow: 'hidden',
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: { width: '100%', height: '100%' },
-  initials: { fontSize: 24, fontWeight: '800', color: colors.onPrimary },
-  caption: { fontSize: 13, lineHeight: 20, color: colors.secondaryText },
-  options: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 12,
-    padding: 8,
-    backgroundColor: colors.background,
-  },
-  option: {
-    minHeight: 48,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  link: {
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: '600',
-    color: colors.link,
-  },
-  pressed: { opacity: 0.65 },
-  error: { fontSize: 14, lineHeight: 21, color: colors.error },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { alignItems: 'center', gap: 8, width: '100%' },
+    avatar: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      overflow: 'hidden',
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    image: { width: '100%', height: '100%' },
+    initials: { fontSize: 24, fontWeight: '800', color: colors.onPrimary },
+    caption: { fontSize: 13, lineHeight: 20, color: colors.secondaryText },
+    options: {
+      width: '100%',
+      borderWidth: 1,
+      borderColor: colors.decorativeBorder,
+      borderRadius: 12,
+      padding: 8,
+      backgroundColor: colors.background,
+    },
+    option: {
+      minHeight: 48,
+      paddingHorizontal: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    link: {
+      fontSize: 15,
+      lineHeight: 23,
+      fontWeight: '600',
+      color: colors.link,
+    },
+    pressed: { opacity: 0.65 },
+    error: { fontSize: 14, lineHeight: 21, color: colors.error },
+  });
+}
