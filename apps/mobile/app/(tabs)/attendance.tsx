@@ -125,7 +125,7 @@ export default function AttendanceScreen() {
   return (
     <GivingPage
       title="Attendance & check-in"
-      subtitle="Be part of the gathering. Every result on this page is a demo."
+      subtitle="Be part of the gathering. Note: Offline queue and witness flows are demos and not fully connected yet."
       sectionLabel="ATTENDANCE"
     >
       {!ready && !error && (
@@ -326,7 +326,7 @@ export default function AttendanceScreen() {
             {['queued', 'syncError'].includes(state(record)) && (
               <>
                 <Text style={ui.caption}>
-                  Simulate upload and a server response:
+                  Simulate upload and server response (Demo only - Coming in V2):
                 </Text>
                 <GivingButton
                   label="Preview confirmed attendance"

@@ -19,14 +19,17 @@ import { supabase } from '@/lib/supabase';
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
+  const [phone, setPhone] = useState('');
+  const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleRegister() {
     Keyboard.dismiss();
-    if (!firstName || !surname || !email || !password) {
+    if (!firstName || !surname || !phone || !age || !email || !password) {
       setError('Please fill in all fields.');
       return;
     }
@@ -44,8 +47,10 @@ export default function RegisterScreen() {
         password: password,
         options: {
           data: {
-            first_name: firstName.trim(),
-            surname: surname.trim(),
+            // These fields are read by the database trigger
+            full_name: `${firstName.trim()} ${surname.trim()}`,
+            phone: phone.trim(),
+            age: age.trim(),
           },
         },
       });
@@ -88,6 +93,27 @@ export default function RegisterScreen() {
             value={surname}
             onChangeText={setSurname}
             placeholder="Surname"
+            placeholderTextColor={colors.secondaryText}
+          />
+
+          <Text style={styles.label}>Phone number</Text>
+          <TextInput
+            style={styles.input}
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="e.g. 08012345678"
+            keyboardType="phone-pad"
+            placeholderTextColor={colors.secondaryText}
+          />
+
+          <Text style={styles.label}>Age</Text>
+          <TextInput
+            style={styles.input}
+            value={age}
+            onChangeText={setAge}
+            placeholder="Your age"
+            keyboardType="number-pad"
+            maxLength={3}
             placeholderTextColor={colors.secondaryText}
           />
 

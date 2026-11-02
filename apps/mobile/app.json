@@ -8,7 +8,6 @@
     "userInterfaceStyle": "light",
     "android": {
       "package": "com.tpc.church",
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_COARSE_LOCATION",

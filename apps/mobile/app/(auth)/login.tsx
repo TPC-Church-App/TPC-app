@@ -119,7 +119,6 @@ export default function LoginScreen() {
           console.log("Supabase Error:", error.message);
           setFeedback({ valid: false, message: error.message });
         } else {
-          console.log("Login Success!", data);
           start(() => router.replace('/(tabs)/home' as any));
         }
       } catch (err: any) {

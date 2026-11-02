@@ -7,11 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/theme';
 import {
   GivingButton,
-  GivingChoice,
   GivingPage,
   givingStyles as ui,
 } from '@/components/giving-ui';
-import { formatGivingAmount, parseGivingAmount } from '@/utils/giving';
+import { parseGivingAmount } from '@/utils/giving';
 
 export default function GivingScreen() {
   const [funds, setFunds] = useState<any[]>([]);
@@ -20,7 +19,6 @@ export default function GivingScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Fetch real funds from Supabase
   useEffect(() => {
     async function fetchFunds() {
       const { data, error } = await supabase.from('funds').select('*');
@@ -30,7 +28,6 @@ export default function GivingScreen() {
     fetchFunds();
   }, []);
 
-  // 2. Handle the Payment
   async function handleGive() {
     Keyboard.dismiss();
     const fund = funds.find((f) => f.id === fundId);
@@ -39,11 +36,15 @@ export default function GivingScreen() {
     const result = parseGivingAmount(amount);
     if (!result.valid) return setError(result.message);
 
+    // Enforce ₦500 minimum (50,000 kobo)
+    if (result.amountMinor < 50000) {
+      return setError('Minimum offering is ₦500.');
+    }
+
     setError('');
     setLoading(true);
 
     try {
-      // Call our Edge Function to initialize Paystack
       const { data, error } = await supabase.functions.invoke('offerings-initialize', {
         body: { amount: result.amountMinor / 100, fund_id: fund.id },
       });
@@ -51,10 +52,8 @@ export default function GivingScreen() {
       if (error) throw error;
       
       if (data?.checkout_url) {
-        // Open Paystack Checkout
         const browserResult = await WebBrowser.openBrowserAsync(data.checkout_url);
         
-        // After they return from Paystack, verify the payment
         if (browserResult.type === 'dismiss' || browserResult.type === 'opened') {
           const verify = await supabase.functions.invoke('offerings-verify', {
             body: { reference: data.reference }
@@ -113,7 +112,7 @@ export default function GivingScreen() {
           placeholderTextColor={colors.secondaryText}
           keyboardType="decimal-pad"
         />
-        <Text style={ui.caption}>Enter ₦100–₦1,000,000.</Text>
+        <Text style={ui.caption}>Enter ₦500–₦1,000,000.</Text>
         
         {error !== '' && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}
         
