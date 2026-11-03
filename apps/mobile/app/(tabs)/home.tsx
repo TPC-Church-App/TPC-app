@@ -1,13 +1,11 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/home.tsx
-// Present the member Home using the church palette.
-// Sample content and local interactions do not create real records.
+// Show account greeting, service details and feature entry points.
 // ===============================================================
-
 import { useAttendanceDraft } from '@/store/attendance-draft';
-import { useDemoWorkspace } from '@/store/demo-workspace';
 import { formatAttendanceTime } from '@/utils/attendance';
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -21,28 +19,53 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 import MemberMenu from '@/components/member-menu';
+import MemberBackButton from '@/components/member-back-button';
+import { supabase } from '@/lib/supabase';
 
 // ===============================================================
-// MEMBER HOME
-// Keep preview access separate from real authentication.
+// HOME DATA AND MEMBER GREETING
+// Prefer the signed-in account name, then the registration draft.
+// Service details remain local demo data.
 // ===============================================================
 
 export default function HomeScreen() {
-  const { draft, entryMode, demoAccess, closeDemo } = useMemberDraft();
+  const { draft, entryMode } = useMemberDraft();
+  const { service } = useAttendanceDraft();
+  const [accountFirstName, setAccountFirstName] = useState('');
 
-  const { service, records } = useAttendanceDraft();
-  const { data } = useDemoWorkspace();
+  useEffect(() => {
+    let active = true;
+    void supabase.auth
+      .getSession()
+      .then(({ data: sessionData }) => {
+        if (!active) return;
+        const fullName = sessionData.session?.user.user_metadata?.full_name;
+        if (typeof fullName === 'string') {
+          setAccountFirstName(fullName.trim().split(/\s+/)[0] ?? '');
+        }
+      })
+      .catch(() => {
+        // The greeting can fall back to the registration draft if session
+        // storage is unavailable; do not expose account or storage details.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  if (!__DEV__ || !demoAccess) {
-    return <Redirect href="/" />;
-  }
+  const firstName =
+    (entryMode === 'register' ? draft.firstName.trim() : '') ||
+    accountFirstName;
 
-  const firstName = entryMode === 'register' ? draft.firstName.trim() : '';
+  // ===============================================================
+  // HOME INTERFACE
+  // ===============================================================
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
+          <MemberBackButton fallbackRoute="/" />
           <View style={styles.identity}>
             <Image
               source={require('../../assets/light/church-logo.png')}
@@ -74,11 +97,10 @@ export default function HomeScreen() {
             <Text style={[styles.eyebrow, { color: colors.onPrimary }]}>
               GATHER WITH US
             </Text>
-            <Text style={styles.sampleLabel}>Sample schedule</Text>
           </View>
 
           <Text accessibilityRole="header" style={styles.serviceTitle}>
-            {service.name}
+            {service?.name || 'Sunday Service'}
           </Text>
           <Text style={styles.serviceDescription}>
             Come together for worship, prayer and the Word.
@@ -88,16 +110,19 @@ export default function HomeScreen() {
             <View style={styles.serviceDetail}>
               <Text style={styles.detailLabel}>DAY</Text>
               <Text style={styles.detailValue}>
-                {new Date(service.startsAt).toLocaleDateString('en-NG', {
-                  weekday: 'long',
-                  timeZone: 'Africa/Lagos',
-                })}
+                {service
+                  ? new Date(service.startsAt).toLocaleDateString('en-NG', {
+                      weekday: 'long',
+                      timeZone: 'Africa/Lagos',
+                    })
+                  : 'Sunday'}
               </Text>
             </View>
             <View style={styles.serviceDetail}>
               <Text style={styles.detailLabel}>TIME</Text>
               <Text style={styles.detailValue}>
-                {formatAttendanceTime(service.startsAt)} WAT
+                {service ? formatAttendanceTime(service.startsAt) : '9:00 AM'}{' '}
+                WAT
               </Text>
             </View>
           </View>
@@ -110,7 +135,6 @@ export default function HomeScreen() {
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open service check-in"
             onPress={() => router.navigate('/(tabs)/attendance')}
             style={({ pressed }) => [
               styles.actionCard,
@@ -124,7 +148,6 @@ export default function HomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open giving"
             onPress={() => router.navigate('/(tabs)/giving')}
             style={({ pressed }) => [
               styles.actionCard,
@@ -146,39 +169,12 @@ export default function HomeScreen() {
             Grow in faith, build meaningful connections and walk together as a
             church family.
           </Text>
-          <Text style={styles.messageNote}>Sample church message</Text>
-          <Pressable
-            accessibilityRole="button"
-            style={styles.textButton}
-            onPress={() => router.navigate('/(tabs)/messages')}
-          >
-            <Text style={styles.actionLink}>Read church messages →</Text>
-          </Pressable>
-        </View>
-
-        <Text accessibilityRole="header" style={styles.sectionTitle}>
-          Your recent activity
-        </Text>
-        <View style={styles.activityCard}>
-          <Text style={styles.actionTitle}>Your journey starts here</Text>
-          <Text style={styles.body}>
-            {records.length} attendance demo record(s) · {data.payments.length}{' '}
-            demo checkout(s). Live account activity is not connected.
-          </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.caption}>Local demo · No account signed in</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={closeDemo}
-            style={({ pressed }) => [
-              styles.textButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.actionLink}>Exit preview</Text>
-          </Pressable>
+          <Text style={styles.caption}>
+            Internal alpha · Some features use preview data.
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -186,15 +182,11 @@ export default function HomeScreen() {
 }
 
 // ===============================================================
-// HOME STYLES
-// Use wrapping rows so cards remain usable on narrow screens.
+// HOME SCREEN STYLES
 // ===============================================================
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  screen: { flex: 1, backgroundColor: colors.background },
   content: {
     width: '100%',
     maxWidth: 680,
@@ -221,38 +213,15 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: colors.surface,
   },
-  wordmark: {
-    flexShrink: 1,
-  },
+  wordmark: { flexShrink: 1 },
   churchName: {
     fontSize: 20,
     lineHeight: 28,
     fontWeight: '800',
     color: colors.text,
   },
-  caption: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.secondaryText,
-  },
-  previewBadge: {
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: colors.surface,
-  },
-  previewText: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: colors.link,
-  },
-  welcome: {
-    marginTop: 32,
-    marginBottom: 24,
-  },
+  caption: { fontSize: 13, lineHeight: 20, color: colors.secondaryText },
+  welcome: { marginTop: 32, marginBottom: 24 },
   eyebrow: {
     fontSize: 11,
     lineHeight: 17,
@@ -285,11 +254,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  sampleLabel: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.onPrimary,
-  },
   serviceTitle: {
     fontSize: 30,
     lineHeight: 39,
@@ -309,9 +273,7 @@ const styles = StyleSheet.create({
     gap: 32,
     marginTop: 24,
   },
-  serviceDetail: {
-    gap: 4,
-  },
+  serviceDetail: { gap: 4 },
   detailLabel: {
     fontSize: 11,
     lineHeight: 17,
@@ -333,11 +295,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
     marginBottom: 14,
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   actionCard: {
     flexGrow: 1,
     flexBasis: 145,
@@ -360,14 +318,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.link,
   },
-  pressed: {
-    opacity: 0.7,
-  },
-  body: {
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.secondaryText,
-  },
+  pressed: { opacity: 0.7 },
+  body: { fontSize: 15, lineHeight: 23, color: colors.secondaryText },
   messageCard: {
     marginTop: 28,
     paddingVertical: 8,
@@ -382,28 +334,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  messageNote: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.secondaryText,
-  },
-  activityCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    gap: 8,
-  },
-  footer: {
-    marginTop: 28,
-    alignItems: 'center',
-    gap: 4,
-  },
-  textButton: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-  },
+  footer: { marginTop: 28, alignItems: 'center', gap: 4 },
 });

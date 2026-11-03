@@ -8,7 +8,10 @@
 1. `supabase/migrations/20261021194959_initial_schema.sql` defines the initial schema.
 2. `supabase/migrations/20261022090000_harden_access_and_payments.sql` restricts
    writes, adds integrity constraints and provides atomic payment settlement.
-3. `supabase/seed.sql` contains development seed data.
+3. `supabase/migrations/20261103090000_email_profiles_and_giving_minimum.sql`
+   provisions email-created member profiles and enforces the current giving
+   minimum while preserving old payment amounts.
+4. `supabase/seed.sql` contains local development fund data.
 
 Read both migrations together. The later migration replaces some original
 policies. Editing documentation does not change an existing database; future
@@ -29,8 +32,9 @@ schema changes must use forward migrations rather than rewriting applied history
 | audit_logs     | Sensitive-operation audit records                                        |
 | webhook_events | Recorded payment events used for duplicate handling                      |
 
-Seed funds are Tithe, Offering, Building and Missions. The presence of a table
-or seed entry does not establish that its application workflow is implemented.
+Seed funds include Tithe, Offering, Building, Missions, Evangelist support and
+Church outreach program. Seed data applies to local database setup; it does not
+publish funds to a hosted project.
 
 ## Current access controls
 
@@ -49,17 +53,24 @@ also control which operations and columns they can change; both layers matter.
 - Direct authenticated/anonymous INSERT, UPDATE and DELETE are revoked on
   attendance, offerings, payments, webhook_events and audit_logs.
 
-In particular, ushers cannot directly insert attendance through the ordinary
-client. Trusted check-in operations still need implementation. The staff
-interface must not assume that a role alone permits arbitrary database writes.
+Ushers cannot directly insert attendance through the ordinary client. The
+`attendance-check-in` Edge Function authenticates the member, checks the
+service QR and server-side time window, then inserts with server-only
+credentials. Manual PIN, offline sync, witness confirmation and GPS evidence
+remain previews. The staff interface must not assume that a role alone permits
+arbitrary database writes.
 
 ## Payment integrity
 
-The hardening migration adds NGN currency/amount constraints, one-payment-per-
-offering and provider transaction uniqueness, audited offering changes, and
-`settle_paystack_payment`. Settlement checks trusted payment details and writes
-the payment, offering status, audit and event records in one transaction.
-Member verification and webhooks share this settlement operation.
+The hardening migration adds NGN currency/maximum constraints,
+one-payment-per-offering and provider transaction uniqueness, audited offering
+changes, and `settle_paystack_payment`. Settlement checks trusted payment
+details and writes the payment, offering status, audit and event records in one
+transaction. Member verification and webhooks share this settlement operation.
+
+The November migration enforces a ₦500 minimum on new offering inserts and
+amount changes. It deliberately allows status-only updates to historical
+transactions so a legacy pending payment can still be verified and settled.
 
 Offerings use decimal naira; provider amounts use integer kobo. Financial foreign
 keys restrict deletion instead of cascading through payment history. Retention,
@@ -67,20 +78,27 @@ anonymization, refunds, reconciliation and account deletion need explicit design
 Existing duplicate or invalid data can prevent a migration from applying; do not
 delete records just to force it through.
 
-## Confirmed requirements not yet reflected in the schema/workflows
+## Current identity and attendance boundaries
 
-Current profile provisioning requires a phone and full name in Auth registration
-and creates an unverified member profile. It is not complete email onboarding.
-Current payment handlers still enforce staff-managed membership verification.
+The November migration allows email/password sign-up to create a normal
+unverified member profile using `full_name` from Auth metadata even when
+`auth.users.phone` is null. The submitted phone is not copied to the canonical
+phone column until the backend verifies it. Role and `is_verified` values from
+metadata are ignored.
 
-Confirmed requirements instead grant ordinary member access after phone or email
-OTP verification, without usher/admin approval. Resolve that mismatch through
-reviewed backend changes while preserving staff authorization boundaries.
+Giving and QR check-in require provider-confirmed email or phone. This contact
+verification rule is separate from staff membership verification; an usher or
+administrator does not approve ordinary member access. `is_verified` remains
+part of staff-role authorization.
 
-Service QR issuance, attendance-window enforcement, consent-based GPS/time
-capture, offline queues, 24-hour synchronization and eligible-member witness
-confirmation are not completed by the existing attendance table. Witness
-confirmation must not introduce an usher/admin approval requirement.
+The new QR function uses the existing `services.qr_code` value and the service
+date/start/end times. The QR is static, so a screenshot can be shared during the
+allowed window. Rotating signed codes or another accepted presence method must
+be agreed before public release. Manual PIN, offline queues, 24-hour sync,
+witness confirmation and GPS capture still lack connected server contracts.
+
+The current profile schema does not persist age from Auth metadata. Agree on a
+date-of-birth or age-data contract before storing it as a member field.
 
 The broader release also needs data/workflow design for badges, sponsor
 invitations, worker-roster approvals, sermons and weekly church messages.
@@ -88,7 +106,7 @@ invitations, worker-roster approvals, sermons and weekly church messages.
 ## Verification boundaries
 
 `supabase/tests/access_and_payment_regression.sql` contains database regression
-checks. `supabase/functions/_shared/payments.test.ts` contains pure helper tests.
-Run database tests only against an isolated development database after reviewing
-setup and permissions. Historical test results are recorded in README.md;
-they are not proof of the hosted project's state or current deployment readiness.
+checks for profile provisioning, access controls, the minimum and settlement.
+Run database tests only against a disposable local development database after
+reviewing setup and permissions. Their presence is not proof that the migration
+was applied to a hosted project.

@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import MemberMenu from '@/components/member-menu';
+import MemberBackButton from '@/components/member-back-button';
 import { colors } from '@/constants/theme';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
 
@@ -63,7 +64,10 @@ export function GivingPage({
         automaticallyAdjustKeyboardInsets
       >
         <View style={givingStyles.row}>
-          <GivingBrand caption={sectionLabel} />
+          <MemberBackButton />
+          <View style={givingStyles.brandSlot}>
+            <GivingBrand caption={sectionLabel} />
+          </View>
           <MemberMenu />
         </View>
         <Text accessibilityRole="header" style={givingStyles.title}>
@@ -217,7 +221,11 @@ export const givingStyles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
+  },
+  brandSlot: {
+    flex: 1,
+    minWidth: 170,
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chips: { flexDirection: 'row', gap: 8 },

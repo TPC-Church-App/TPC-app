@@ -5,7 +5,7 @@
 // ===============================================================
 
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.118.0';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   isRecord,
@@ -26,12 +26,18 @@ import {
 
 // @desc    Verify and durably settle the caller's own offering.
 // @route   POST /functions/v1/offerings-verify
-// @access  Authenticated, verified member
+// @access  Authenticated member with a verified email or phone
 export async function handleVerify(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS')
+    return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') {
     return jsonResponse(
-      { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST for this endpoint.' } },
+      {
+        error: {
+          code: 'METHOD_NOT_ALLOWED',
+          message: 'Use POST for this endpoint.',
+        },
+      },
       405,
       { ...corsHeaders, Allow: 'POST, OPTIONS' },
     );
@@ -40,14 +46,22 @@ export async function handleVerify(req: Request): Promise<Response> {
   try {
     const authorization = req.headers.get('Authorization');
     if (!authorization || !/^Bearer\s+\S+$/i.test(authorization)) {
-      throw new PaymentError(401, 'UNAUTHORIZED', 'Sign in to verify an offering.');
+      throw new PaymentError(
+        401,
+        'UNAUTHORIZED',
+        'Sign in to verify an offering.',
+      );
     }
     const url = Deno.env.get('SUPABASE_URL');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const paystackSecret = Deno.env.get('PAYSTACK_SECRET_KEY');
     if (!url || !anonKey || !serviceKey || !paystackSecret) {
-      throw new PaymentError(500, 'CONFIGURATION_ERROR', 'Payment verification is not configured.');
+      throw new PaymentError(
+        500,
+        'CONFIGURATION_ERROR',
+        'Payment verification is not configured.',
+      );
     }
 
     const memberClient = createClient(url, anonKey, {
@@ -59,20 +73,17 @@ export async function handleVerify(req: Request): Promise<Response> {
       error: authError,
     } = await memberClient.auth.getUser();
     if (authError || !user)
-      throw new PaymentError(401, 'UNAUTHORIZED', 'Sign in to verify an offering.');
+      throw new PaymentError(
+        401,
+        'UNAUTHORIZED',
+        'Sign in to verify an offering.',
+      );
 
-    const { data: profile, error: profileError } = await memberClient
-      .from('profiles')
-      .select('is_verified')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (profileError)
-      throw new PaymentError(500, 'PROFILE_CHECK_FAILED', 'Membership could not be checked.');
-    if (!profile || profile.is_verified !== true) {
+    if (!user.email_confirmed_at && !user.phone_confirmed_at) {
       throw new PaymentError(
         403,
-        'MEMBERSHIP_PENDING',
-        'Membership verification is required before giving.',
+        'CONTACT_NOT_VERIFIED',
+        'Verify your email address or phone number before checking a payment.',
       );
     }
 
@@ -87,8 +98,17 @@ export async function handleVerify(req: Request): Promise<Response> {
       .eq('user_id', user.id)
       .maybeSingle();
     if (offeringError)
-      throw new PaymentError(500, 'OFFERING_LOOKUP_FAILED', 'The offering could not be checked.');
-    if (!offering) throw new PaymentError(404, 'OFFERING_NOT_FOUND', 'The offering was not found.');
+      throw new PaymentError(
+        500,
+        'OFFERING_LOOKUP_FAILED',
+        'The offering could not be checked.',
+      );
+    if (!offering)
+      throw new PaymentError(
+        404,
+        'OFFERING_NOT_FOUND',
+        'The offering was not found.',
+      );
 
     const result = await requestPaystack(
       `/transaction/verify/${encodeURIComponent(reference)}`,
@@ -113,7 +133,8 @@ export async function handleVerify(req: Request): Promise<Response> {
         'queued',
         'reversed',
       ];
-      if (!supportedStatuses.includes(transaction.status)) throw new ProviderError();
+      if (!supportedStatuses.includes(transaction.status))
+        throw new ProviderError();
       return jsonResponse({ status: transaction.status }, 200, corsHeaders);
     }
 

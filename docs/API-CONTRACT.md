@@ -1,185 +1,163 @@
-# TPC Church App - API Contract
+# TPC Church App API Contract
 
-**Revision:** 1.2 (30 October 2026)
-**Status:** Repository implementation reference; hosted behaviour unverified.
+**Revision:** 3.0 (3 November 2026)
+**Release:** Internal alpha
+**Status:** Source changes are prepared locally; hosted migrations, function
+deployments and end-to-end results are not yet verified.
 
-## Boundaries
+## Security boundaries
 
-The mobile app contains guarded member-demo journeys, including saved device state, attendance and payment scenario screens.
-It does not call Supabase Auth or payment functions. This contract describes
-existing payment source code and identifies the missing integration contracts.
-It does not imply that functions are deployed or production-ready.
+- The mobile app uses only the Supabase project URL and anon/publishable key.
+- Supabase service-role and Paystack secret keys stay in Edge Function secrets.
+- Member endpoints validate the bearer token with Supabase Auth. They derive the
+  member ID from that verified user, never from request JSON.
+- Database row-level security and grants remain authoritative. A UI state,
+  profile flag, browser return or QR scan alone does not prove payment or
+  attendance.
+- The iOS and Android Supabase clients persist auth sessions in Expo SecureStore
+  chunks; the manifest switches only after all new chunks are written. The web
+  preview uses AsyncStorage. Existing native AsyncStorage sessions migrate on
+  first read. Test session refresh, reinstall behavior and sign-out on physical
+  devices before public release.
 
-Local function base: `http://localhost:54321/functions/v1`.
-Hosted base: `https://<project-ref>.supabase.co/functions/v1`.
-A physical phone's `localhost` refers to the phone, not the development laptop;
-local phone integration needs a reachable development host and verified setup.
-Supabase Auth and database client calls use their own APIs, not this function base.
+## Member identity and profile provisioning
 
-## Authentication and current policy mismatch
+The internal alpha currently creates accounts with email and password. Members
+must confirm their email before giving or checking in. Phone OTP is not connected
+yet. When phone Auth is added, a server-confirmed phone can satisfy the same
+contact-verification rule.
 
-Member payment functions require `Authorization: Bearer <access-token>` and
-validate the caller with Supabase Auth. JSON requests use
-`Content-Type: application/json`. Gateway/client-key configuration must also be
-verified for the target Supabase project; a service-role key never belongs in a client.
+The new migration makes `profiles.phone` nullable and provisions a normal,
+unverified `member` profile when Auth metadata contains a non-empty `full_name`.
+It also creates the related `members` row. A submitted phone in email-sign-up
+metadata is not copied into the canonical phone column because it has not been
+verified. The trigger never accepts role or verification values from metadata.
 
-Current handlers additionally require `profiles.is_verified = true`; otherwise
-they return `403 MEMBERSHIP_PENDING`. This is legacy implementation behaviour.
-The confirmed product requirement grants ordinary member access immediately
-after phone or email OTP verification, without usher/admin approval. Profile
-provisioning and these checks need reviewed backend changes before integration.
-Do not make the frontend set protected role or verification fields.
+Contact verification grants ordinary member access to these member endpoints.
+`profiles.is_verified` remains relevant to protected staff-role authorization;
+it does not make an usher or administrator approve an ordinary member account.
 
-## Response conventions
+Age currently remains in Auth metadata. A later profile-data contract should
+define whether the application stores date of birth or another age representation
+before the backend persists it as member data.
 
-The current functions do not share a uniform success envelope. Clients must use
-the endpoint-specific shapes below. Changing this later requires coordinated
-contract and handler changes.
+## Active giving funds
 
-Handler errors use this structure (example):
+The member app loads rows from `public.funds` where `is_active = true`. It sends
+the selected real fund UUID and does not invent fund IDs. `seed.sql` contains
+Offering, Tithe, Building, Missions, Evangelist support and Church outreach
+examples for local development. Seed data does not activate funds in a hosted
+project. A church administrator must publish the intended live funds there.
 
-```json
-{
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Sign in to initialize an offering."
-  }
-}
-```
+The current schema has no explicit category field. The app temporarily maps fund
+names to Offering, Tithes, Property, Church mission, Evangelist and Church
+outreach program. Add an explicit backend category before administrators create
+arbitrary fund names or campaigns.
 
-Infrastructure/gateway failures may have other response shapes. Handle HTTP
-status, unexpected bodies and network failure without assuming JSON success.
+## `POST /functions/v1/offerings-initialize`
 
-## POST /offerings-initialize
-
-Source: `supabase/functions/offerings-initialize/index.ts`.
-
-Example body (synthetic values):
-
-```json
-{
-  "amount": 1000,
-  "fund_id": "11111111-1111-4111-8111-111111111111",
-  "email": "member@example.com"
-}
-```
-
-- `amount`: numeric naira, 100 to 1,000,000 inclusive, at most two decimals.
-  These are current code limits; final configurable product limits remain open.
-- `fund_id`: UUID of an existing active fund. The example UUID is not seed data.
-- `email`: checkout email when Auth supplies none. The handler prefers `user.email`.
-- Ownership, reference, NGN currency and pending status are assigned server-side.
-- The backend converts naira into integer kobo for Paystack.
-
-On HTTP 200, the handler returns Paystack's initialization object. It validates
-`status: true`, matching `data.reference`, nonempty `data.access_code` and an
-HTTPS `data.authorization_url`. Other provider fields may also be present.
+Requires a confirmed Auth email or phone and a profile row. The caller must send
+JSON with a selected active fund:
 
 ```json
 {
-  "status": true,
-  "data": {
-    "authorization_url": "https://checkout.paystack.com/example",
-    "access_code": "example-code",
-    "reference": "TPC-example-reference"
-  }
+  "amount": 500,
+  "fund_id": "11111111-1111-4111-8111-111111111111"
 }
 ```
 
-The callback is constructed as `APP_URL/payment/callback`; that destination
-is not connected; the mobile demo return route is a separate scenario preview and does not receive live Paystack callbacks. A callback
-or checkout screen is never proof of successful payment.
+`amount` is naira, between ₦500 and ₦1,000,000, with at most two decimal places.
+The endpoint validates the minimum, creates a server-owned pending offering,
+then initializes Paystack in NGN. It returns the Paystack initialization shape
+needed by the app: `status`, `data.authorization_url`, `data.access_code` and
+`data.reference`.
 
-Initialization creates a fresh offering/reference per request. Client retry
-idempotency is not implemented: do not automatically retry an uncertain request
-as though it were guaranteed to reuse the first offering. A provider timeout can
-leave an offering pending; reconciliation remains unfinished.
+The server supplies an HTTPS `paystack-return` callback. That endpoint validates
+the reference format and redirects to the fixed `tpc://payment-return` app link;
+the app then calls `offerings-verify`. The callback does not report or prove
+success. Standalone iOS/Android builds use the app link; Expo Go and web preview
+fall back to returning manually and checking status. Opening or closing a
+browser never marks a gift successful.
 
-## POST /offerings-verify
+Expected failures include `UNAUTHORIZED`, `CONTACT_NOT_VERIFIED`,
+`INVALID_AMOUNT`, `INVALID_FUND`, `INACTIVE_FUND`, `PROFILE_INCOMPLETE` and safe
+provider/configuration errors. Responses must not expose credentials, raw
+provider payloads or database error text.
 
-Source: `supabase/functions/offerings-verify/index.ts`.
+## `POST /functions/v1/offerings-verify`
+
+Requires the same confirmed caller and accepts only the caller's own reference:
 
 ```json
-{
-  "reference": "TPC-example-reference"
-}
+{ "reference": "TPC-generated-reference" }
 ```
 
-The reference must be 1-100 characters from letters, digits, `.`, `_`, `=`, `-`.
-The handler looks up only the caller's own offering before contacting Paystack.
-Successful provider verification is settled through a database transaction.
-Only after settlement is confirmed does it return:
+The server verifies the reference with Paystack and calls the atomic
+`settle_paystack_payment` database function. Only a matching verified provider
+transaction may produce `{"status":"successful"}`. Other supported responses
+include `abandoned`, `failed`, `ongoing`, `pending`, `processing`, `queued` and
+`reversed`. The client displays server status; it cannot submit a success result.
+
+The migration enforces ₦500 on newly inserted offerings and amount changes while
+allowing status-only updates to historical transactions. Provider settlement
+still accepts an existing ₦100-or-higher transaction when it exactly matches a
+pending legacy offering; it cannot create a new sub-₦500 offering.
+
+## Paystack return and webhook
+
+`paystack-return` is a public, no-secret redirect endpoint because Paystack
+cannot send a member JWT to the callback. It accepts only a validated reference
+and uses a fixed app scheme, so it cannot be used as an arbitrary redirect. It
+never changes payment state. `GET /functions/v1/paystack-return` redirects to
+`tpc://payment-return` with the validated reference or a fixed error code.
+
+`paystack-webhook` verifies the signature against the original request body with
+HMAC SHA-512. It uses the same settlement function as member verification so
+duplicate provider events cannot create duplicate payment rows. JWT verification
+is disabled only for the webhook and fixed redirect route; the webhook validates
+the provider signature, while the redirect cannot change payment state.
+
+The app does not hardcode payment channels. Paystack checkout determines which
+methods it offers based on the merchant account, transaction and device. Confirm
+Apple Pay, Google Pay and bank-transfer availability with the church's Paystack
+test account before describing them as supported.
+
+## `POST /functions/v1/attendance-check-in`
+
+Requires a confirmed Auth email or phone and an existing profile. The request
+contains the exact QR value stored on an active service:
 
 ```json
-{
-  "status": "successful"
-}
+{ "qr_code": "service-qr-value" }
 ```
 
-A recognized non-success provider status returns HTTP 200 with `status` equal
-to `abandoned`, `failed`, `ongoing`, `pending`, `processing`, `queued` or
-`reversed`. HTTP 200 alone therefore does not mean the payment succeeded.
-Those non-success results do not implement a full refund/reversal workflow.
-Repeated successful settlement is guarded against duplicate payment records.
+The endpoint resolves the service on the server, applies a WAT check-in window
+from 30 minutes before service start through 30 minutes after service end,
+checks for an existing member/service record and inserts attendance using the
+server-only service role. A repeated scan returns `already_checked_in`; a new
+record returns `confirmed`, `service_title` and `checked_in_at`. Direct member
+attendance inserts remain revoked.
 
-## POST /paystack-webhook
+The current QR value is static for the service. The time window does not prove
+physical presence if somebody shares a screenshot. A rotating signed QR or
+another approved presence check remains a release-hardening item. Manual usher
+PIN, offline synchronization, witness confirmation and GPS evidence remain UI
+previews and are not connected to this endpoint.
 
-Source: `supabase/functions/paystack-webhook/index.ts`.
+## Deployment and verification
 
-Provider-to-server only; mobile applications must not call this endpoint.
-`x-paystack-signature` authenticates the original body with HMAC SHA-512.
-The Supabase config disables gateway JWT verification only for this function;
-the handler still requires a valid provider signature.
+Apply the new migration after the existing schema and hardening migrations, then
+deploy `offerings-initialize`, `offerings-verify`, `paystack-webhook`,
+`paystack-return` and `attendance-check-in` to the intended development project. Confirm the runtime
+secrets there and use Paystack test credentials before testing checkout. Do not
+copy any secret into the app or repository.
 
-A valid `charge.success` is settled atomically. Successful acknowledgement is
-`{"received":true}`. Other signed event types receive
-`{"received":true,"ignored":true}` and are not treated as completed payment work.
-Database failures return an error rather than a false successful acknowledgement.
-
-## Error categories
-
-| HTTP status | Examples from handlers                                              |
-| ----------- | ------------------------------------------------------------------- |
-| 400         | Invalid JSON, amount, fund, email, reference or event               |
-| 401         | Missing/invalid member token or webhook signature                   |
-| 403         | Current legacy membership verification gate                         |
-| 404         | Offering unavailable to the caller / settlement reference not found |
-| 405         | Unsupported HTTP method                                             |
-| 409         | Provider/stored payment mismatch or conflicting settlement          |
-| 413         | Request body exceeds handler limit                                  |
-| 415         | Member request is not application/json                              |
-| 500         | Configuration, profile lookup, persistence or settlement failure    |
-| 502         | Payment-provider failure or malformed provider response             |
-
-Member handlers also answer OPTIONS preflight requests. The webhook accepts POST only.
-
-## Contracts still required
-
-Define and test each contract before its frontend integration:
-
-- Phone/email OTP request, verification, session refresh, logout and recovery.
-- Profile completion and immediate ordinary-member access.
-- Service discovery, service-specific QR passes and check-in windows.
-- Consent-based offline evidence, upload within 24 hours of service end,
-  duplicate handling and eligible-member witness confirmation.
-- Histories, receipts, notifications and staff operations.
-- Badges, sponsor invitations, worker-roster approvals, sermons and messages.
-
-These are planned capabilities, not available endpoints. Track completion in
-README.md rather than creating a second competing progress checklist.
-
-## Member-demo adapters and proposed catalog contract (30 October 2026)
-
-The frontend deliberately uses demo data only. No endpoint was added or changed in this milestone. `services/demo-storage` stores device demo state, not an Auth session or a shared member database. A phone/email entered on sign-in does not select a saved device profile.
-
-The backend owner must agree a fund/campaign discovery contract before live checkout. Proposed fields: stable UUID `id`, display `name`, `description`, category (offering/tithe/property/general/program), `is_active`, currency, display order, optional campaign dates and updated-at/version. These are adapter requirements, not confirmed database fields or an available endpoint. Agree whether campaign dates affect checkout eligibility, fund archival and retention of historical names/categories. The server remains authoritative for availability, amount limits and ownership; the frontend must not create/activate funds.
-
-History needs cursor pagination, fund/category snapshots, integer minor-unit amount, currency, reference, created/updated timestamps and authoritative payment status. Receipts need a server-owned receipt identifier and eligibility decision; client return parameters and HTTP 200 alone never establish success. Map all statuses documented above. Demo replay rules only protect the local preview and do not implement reconciliation or refunds.
-
-Remaining member contracts also need media/content URLs and permissions, notification/read/preference semantics, profile/photo storage limits, department request decisions and server-granted roles, roster availability/approval states, both newcomer and financial-sponsorship invitations, and witness eligibility/consent. Financial sponsorship must not imply approval or funding from a prepared request. Contact details, bank information and staff roles must not be inferred from demo data.
-
-## Partner review required before live integration
-
-The member demo UI is ready to be reviewed against these proposed contracts, subject to its final validation. No agreement is recorded on behalf of the backend owner. Confirm: (1) phone/email OTP request/verification/resend, expiry, error codes and session response; (2) profile creation/fetch/update and photo storage; (3) service-specific signed QR, trusted time, witness eligibility and offline evidence/idempotency; (4) active fund/campaign discovery, checkout return, reconciliation, paginated history and receipt eligibility; (5) department/roster decisions and server-owned permissions; (6) content/media, read-state/preferences, badges and both sponsorship/invitation types.
-
-Confirm successful, pending, rejected, expired, denied, network-error and retry responses for each relevant flow. The frontend owner connects these APIs and tests integrated behaviour after the backend owner supplies them. Native demo recovery and mock results do not establish production authentication or financial integrity.
+`supabase/tests/access_and_payment_regression.sql` covers profile provisioning,
+privilege boundaries, the minimum and payment settlement against a disposable
+local database. Mobile tests cover input validation, response parsing, secure
+storage behavior, payment-return parsing and the attendance time window. The
+Deno payment helper test covers new-gift amount boundaries and confirms that a
+provider payload at the original NGN 100 floor can be normalized for the
+settlement call. It does not exercise the database settlement RPC. These checks
+still need to run on the current working copy. Repository source does not prove
+the hosted project has these migrations or functions deployed.

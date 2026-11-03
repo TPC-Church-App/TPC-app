@@ -1,0 +1,64 @@
+name: Mobile and Edge Function checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    name: Mobile format, types and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Run mobile and shared backend tests
+        run: npm test
+
+  edge-functions:
+    name: Type-check Supabase Edge Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Check payment and attendance functions
+        run: >-
+          deno check
+          supabase/functions/offerings-initialize/index.ts
+          supabase/functions/offerings-verify/index.ts
+          supabase/functions/paystack-webhook/index.ts
+          supabase/functions/paystack-return/index.ts
+          supabase/functions/attendance-check-in/index.ts
+
+      - name: Run payment validation tests
+        run: deno test supabase/functions/_shared/payments.test.ts

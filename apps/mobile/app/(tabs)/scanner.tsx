@@ -1,471 +1,221 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/scanner.tsx
-// Camera QR preview based on the supplied dark/gold scanner reference.
-// Recognize only the public demo pass. Never follow scanned URLs.
-// Request consent before location capture; never confirm attendance here.
+// Scan a service QR and request server-confirmed attendance.
 // ===============================================================
-
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as Location from 'expo-location';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import {
-  AppState,
-  Keyboard,
-  Linking,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-
-import BrandedLoader from '@/components/branded-loader';
-import {
-  GivingButton as ActionButton,
-  GivingPage as MemberPage,
-  givingStyles as ui,
-} from '@/components/giving-ui';
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+} from 'expo-camera';
+import { router } from 'expo-router';
 import { colors } from '@/constants/theme';
-import { useAttendanceDraft } from '@/store/attendance-draft';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import BrandedLoader from '@/components/branded-loader';
+import MemberBackButton from '@/components/member-back-button';
+import { supabase } from '@/lib/supabase';
 import {
-  DEMO_SERVICE_PASS,
-  formatAttendanceStamp,
-  getCheckInState,
-  isDemoServicePass,
-  type AttendanceAttempt,
-  type LocationEvidence,
-} from '@/utils/attendance';
+  getAttendanceCheckInErrorMessage,
+  parseAttendanceCheckInResult,
+  type AttendanceCheckInResult,
+} from '@/utils/attendance-check-in';
 
 // ===============================================================
-// SCANNER STATE AND LIFECYCLE
+// CAMERA PERMISSION AND SCANNER STATE
 // ===============================================================
 
 export default function ScannerScreen() {
-  const { service, attempt, saveEvidence, ready } = useAttendanceDraft();
   const [permission, requestPermission] = useCameraPermissions();
-  const [focused, setFocused] = useState(false);
-  const [appActive, setAppActive] = useState(
-    AppState.currentState === 'active',
-  );
-  const [torch, setTorch] = useState(false);
-  const [cameraError, setCameraError] = useState('');
-  const [scanError, setScanError] = useState('');
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualCode, setManualCode] = useState('');
-  const [scan, setScan] = useState<{
-    scannedAt: string;
-    source: AttendanceAttempt['source'];
-  } | null>(null);
-  const [evidenceError, setEvidenceError] = useState('');
-  const [capturing, setCapturing] = useState(false);
-  const [requestingCamera, setRequestingCamera] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<AttendanceCheckInResult | null>(null);
+  const [error, setError] = useState('');
   const scanLocked = useRef(false);
-  const focusedRef = useRef(false);
-  const captureId = useRef(0);
-  const busy = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      focusedRef.current = true;
-      setFocused(true);
-      scanLocked.current = false;
-      setScan(null);
-      setScanError('');
-      setCameraError('');
-      setEvidenceError('');
-      setManualOpen(false);
-      setManualCode('');
-      setRequestingCamera(false);
-      return () => {
-        focusedRef.current = false;
-        captureId.current += 1;
-        busy.current = false;
-        setCapturing(false);
-        setFocused(false);
-        setTorch(false);
-      };
-    }, []),
-  );
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      setAppActive(state === 'active');
-      if (state === 'background') {
-        captureId.current++;
-        busy.current = false;
-        setCapturing(false);
-        setTorch(false);
-      }
-    });
-    return () => subscription.remove();
-  }, []);
 
   // ===============================================================
-  // DEMO SERVICE PASS VALIDATION
+  // CAMERA ACCESS
   // ===============================================================
 
-  function readPass(data: string, source: AttendanceAttempt['source']) {
-    if (!ready || !focusedRef.current || scanLocked.current || attempt) return;
-    Keyboard.dismiss();
+  if (!permission) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
+        </View>
+        <Text style={styles.message}>Checking camera permission…</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
+        </View>
+        <Text style={styles.message}>
+          We need your permission to show the camera
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={requestPermission}
+          style={styles.permissionButton}
+        >
+          <Text style={styles.permissionButtonText}>Allow camera access</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  // ===============================================================
+  // VERIFY THE QR WITH THE AUTHENTICATED ATTENDANCE ENDPOINT
+  // A camera scan alone never records attendance.
+  // ===============================================================
+
+  async function handleBarCodeScanned(scan: BarcodeScanningResult) {
+    if (scanLocked.current || !scan.data.trim() || scan.data.length > 256)
+      return;
+
     scanLocked.current = true;
-    if (getCheckInState(service) !== 'open') {
-      setScanError('The service check-in window is not open.');
-      return;
-    }
-    if (!isDemoServicePass(data)) {
-      setScanError(
-        'This code cannot be verified in this preview. Use the labelled TPC demo pass.',
+    setScanned(true);
+    setLoading(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const { data, error: requestError } = await supabase.functions.invoke(
+        'attendance-check-in',
+        { body: { qr_code: scan.data.trim() } },
       );
-      return;
-    }
-    setScanError('');
-    setScan({ scannedAt: new Date().toISOString(), source });
-  }
 
-  function tryAgain() {
-    scanLocked.current = false;
-    setScan(null);
-    setScanError('');
-    setCameraError('');
-    setEvidenceError('');
-  }
+      if (requestError) {
+        let responseBody: unknown;
+        if (requestError.context instanceof Response) {
+          try {
+            responseBody = await requestError.context.clone().json();
+          } catch {
+            responseBody = null;
+          }
+        }
+        setError(getAttendanceCheckInErrorMessage(responseBody));
+        return;
+      }
 
-  async function allowCamera() {
-    if (requestingCamera) return;
-    setRequestingCamera(true);
-    try {
-      await requestPermission();
-    } catch {
-      if (focusedRef.current)
-        setCameraError(
-          'Camera permission could not be requested. Use the manual demo code instead.',
-        );
-    } finally {
-      if (focusedRef.current) setRequestingCamera(false);
-    }
-  }
-
-  // ===============================================================
-  // SAVE PENDING ATTENDANCE EVIDENCE
-  // ===============================================================
-
-  async function save(location: LocationEvidence | null) {
-    if (!scan || !focusedRef.current) return;
-    const result = await saveEvidence({ ...scan, location });
-    if (!focusedRef.current) return;
-    if (!result.ok) {
-      setEvidenceError(result.message);
-      return;
-    }
-    router.replace('/(tabs)/attendance');
-  }
-
-  function cancelLocation() {
-    captureId.current += 1;
-    busy.current = false;
-    setCapturing(false);
-  }
-
-  // ===============================================================
-  // LOCATION CONSENT AND CAPTURE
-  // ===============================================================
-
-  async function captureLocation() {
-    if (!scan || busy.current) return;
-    const operation = ++captureId.current;
-    busy.current = true;
-    setCapturing(true);
-    setEvidenceError('');
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
-    try {
-      const consent = await Location.requestForegroundPermissionsAsync();
-      if (!focusedRef.current || captureId.current !== operation) return;
-      if (!consent.granted) {
-        setEvidenceError(
-          'Location was not enabled. You can request a witness instead, or leave without recording attendance.',
+      const parsed = parseAttendanceCheckInResult(data);
+      if (!parsed) {
+        setError(
+          'The check-in service returned an unexpected response. Try again.',
         );
         return;
       }
 
-      const position = await Promise.race([
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        }),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(
-            () => reject(new Error('LOCATION_TIMEOUT')),
-            12_000,
-          );
-        }),
-      ]);
-      if (!focusedRef.current || captureId.current !== operation) return;
-
-      await save({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        observedAt: new Date(position.timestamp).toISOString(),
-      });
-    } catch (error) {
-      if (focusedRef.current && captureId.current === operation) {
-        setEvidenceError(
-          error instanceof Error && error.message === 'LOCATION_TIMEOUT'
-            ? 'Location is taking too long. Try again or request a witness instead.'
-            : 'Location could not be captured. Check device location services or request a witness instead.',
-        );
-      }
+      setResult(parsed);
+    } catch {
+      setError(
+        'Your check-in could not be confirmed. Check your connection and try again.',
+      );
     } finally {
-      if (timeout !== undefined) clearTimeout(timeout);
-      if (focusedRef.current && captureId.current === operation) {
-        busy.current = false;
-        setCapturing(false);
-      }
+      setLoading(false);
     }
   }
 
-  if (attempt) {
-    return (
-      <MemberPage
-        sectionLabel="CHECK-IN"
-        title="Check-in already captured"
-        subtitle="One local attempt is kept for this demo service."
-      >
-        <ActionButton
-          label="View your check-in"
-          onPress={() => router.navigate('/(tabs)/attendance')}
-        />
-      </MemberPage>
-    );
+  function resetScanner() {
+    scanLocked.current = false;
+    setScanned(false);
+    setResult(null);
+    setError('');
   }
 
   // ===============================================================
   // SCANNER INTERFACE
   // ===============================================================
 
-  const cameraActive =
-    focused &&
-    appActive &&
-    permission?.granted &&
-    !scan &&
-    !scanError &&
-    !cameraError &&
-    !manualOpen;
-
   return (
-    <>
-      <MemberPage
-        sectionLabel="CHECK-IN"
-        title={scan ? 'Keep your attendance evidence' : "You're welcome here"}
-        subtitle={
-          scan
-            ? 'The demo pass was recognised. Choose how to support this check-in.'
-            : 'Point your camera at the service QR code inside the entrance.'
+    <View style={styles.container}>
+      <CameraView
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        onBarcodeScanned={
+          scanned ? undefined : (scan) => void handleBarCodeScanned(scan)
         }
-      >
-        {scan ? (
-          <>
-            <View style={ui.card}>
-              <Text style={ui.heading}>{service.name}</Text>
-              <Text style={ui.body}>
-                Scan time: {formatAttendanceStamp(scan.scannedAt)} WAT
-              </Text>
-              <Text style={ui.caption}>
-                No attendance has been confirmed. This is a demo service pass.
-              </Text>
-            </View>
-            <View style={ui.card}>
-              <Text style={ui.heading}>Location evidence is your choice</Text>
-              <Text style={ui.body}>
-                With your permission, capture your current location and its
-                reported accuracy alongside the scan time. Native evidence is
-                encrypted on this device until you clear it in Settings. Web
-                reloads discard coordinates and require a witness.
-              </Text>
-              <ActionButton
-                label="Allow location and save evidence"
-                onPress={captureLocation}
-              />
-              <ActionButton
-                label="Request a witness instead"
-                secondary
-                onPress={() => save(null)}
-              />
-              <Text style={ui.caption}>
-                A witness must be a verified member with confirmed attendance at
-                this same service. This preview cannot contact or verify that
-                member.
-              </Text>
-              {evidenceError !== '' && (
-                <Text accessibilityRole="alert" style={ui.error}>
-                  {evidenceError}
-                </Text>
-              )}
-            </View>
-            <ActionButton label="Scan again" secondary onPress={tryAgain} />
-          </>
-        ) : (
-          <>
-            <View style={styles.scannerCard}>
-              <Text style={styles.scannerTitle}>TPC · SERVICE CHECK-IN</Text>
-              <View style={styles.cameraFrame}>
-                {cameraActive ? (
-                  <CameraView
-                    style={StyleSheet.absoluteFill}
-                    facing="back"
-                    enableTorch={torch}
-                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                    onBarcodeScanned={({ data }) => readPass(data, 'qr')}
-                    onMountError={() =>
-                      setCameraError(
-                        'The camera could not start. Try again or use the manual demo code.',
-                      )
-                    }
-                  />
-                ) : (
-                  <View style={styles.cameraPlaceholder}>
-                    <Text style={styles.scannerText}>
-                      {manualOpen
-                        ? 'Manual code entry selected'
-                        : permission?.granted
-                          ? 'Camera paused'
-                          : 'Camera access is needed to scan a service QR'}
-                    </Text>
-                  </View>
-                )}
-                <View pointerEvents="none" style={styles.scanGuide} />
-              </View>
-              <Text style={styles.scannerText}>
-                {service.name} · Sample pass only
-              </Text>
-            </View>
-
-            {!permission?.granted && (
-              <View style={ui.card}>
-                <Text style={ui.body}>
-                  Use the camera only to read a QR code. This flow does not take
-                  photos, record video or request microphone access.
-                </Text>
-                {permission?.canAskAgain !== false ? (
-                  <ActionButton
-                    label={
-                      requestingCamera
-                        ? 'Requesting camera permission…'
-                        : 'Allow camera'
-                    }
-                    disabled={requestingCamera}
-                    onPress={allowCamera}
-                  />
-                ) : (
-                  <ActionButton
-                    label="Open app permission settings"
-                    onPress={() => {
-                      Linking.openSettings().catch(() =>
-                        setCameraError(
-                          'Open Expo Go permissions in your device Settings.',
-                        ),
-                      );
-                    }}
-                  />
-                )}
-                <Text style={ui.caption}>
-                  Camera access is optional. You can use manual demo-code entry
-                  below.
-                </Text>
-              </View>
-            )}
-
-            {(scanError !== '' || cameraError !== '') && (
-              <View style={ui.card}>
-                <Text accessibilityRole="alert" style={ui.error}>
-                  {scanError || cameraError}
-                </Text>
-                <ActionButton
-                  label="Try scanning again"
-                  secondary
-                  onPress={tryAgain}
-                />
-              </View>
-            )}
-            {cameraActive && (
-              <ActionButton
-                label={torch ? 'Turn torch off' : 'Turn torch on'}
-                secondary
-                onPress={() => setTorch((current) => !current)}
-              />
-            )}
-
-            <ActionButton
-              label={
-                manualOpen ? 'Return to camera' : 'Enter service code instead'
-              }
-              secondary
-              onPress={() => {
-                tryAgain();
-                setManualOpen((current) => !current);
-              }}
-            />
-            {manualOpen && (
-              <View style={ui.card}>
-                <Text style={ui.label}>Demo service code</Text>
-                <TextInput
-                  accessibilityLabel="Demo service code"
-                  value={manualCode}
-                  onChangeText={(value) => {
-                    setManualCode(value);
-                    scanLocked.current = false;
-                    setScanError('');
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  maxLength={256}
-                  style={ui.input}
-                  placeholder="Enter the demo service code"
-                  placeholderTextColor={colors.secondaryText}
-                  returnKeyType="done"
-                  onSubmitEditing={() => readPass(manualCode, 'manualDemo')}
-                />
-                <ActionButton
-                  label="Enter code"
-                  onPress={() => readPass(manualCode, 'manualDemo')}
-                />
-                <ActionButton
-                  label="Fill sample code"
-                  secondary
-                  onPress={() => {
-                    setManualCode(DEMO_SERVICE_PASS);
-                    scanLocked.current = false;
-                    setScanError('');
-                  }}
-                />
-              </View>
-            )}
-            <Text style={ui.caption}>
-              The backend QR contract is not connected. This scanner recognises
-              only the labelled demo pass and never opens scanned links.
-            </Text>
-          </>
-        )}
-        <ActionButton
-          label={
-            scan ? 'Leave without recording attendance' : 'Back to attendance'
-          }
-          secondary
-          onPress={() => {
-            cancelLocation();
-            tryAgain();
-            router.navigate('/(tabs)/attendance');
-          }}
-        />
-      </MemberPage>
-
-      <BrandedLoader
-        visible={capturing}
-        label="Capturing location evidence…"
-        closeLabel="Cancel location check"
-        onClose={cancelLocation}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr'],
+        }}
       />
-    </>
+
+      <SafeAreaView
+        pointerEvents="box-none"
+        style={StyleSheet.absoluteFill}
+        edges={['top', 'left', 'right']}
+      >
+        <View pointerEvents="box-none" style={styles.scannerHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
+        </View>
+      </SafeAreaView>
+
+      {/* Dark overlay with a clear box in the middle */}
+      <View style={styles.overlay}>
+        <View style={styles.unfocusedContainer}></View>
+        <View style={styles.focusedContainer}>
+          <View style={styles.borderTopLeft} />
+          <View style={styles.borderTopRight} />
+          <View style={styles.borderBottomLeft} />
+          <View style={styles.borderBottomRight} />
+        </View>
+        <View style={styles.unfocusedContainer}>
+          <Text style={styles.instructions}>
+            {scanned
+              ? 'Checking service QR…'
+              : 'Align QR code within the frame'}
+          </Text>
+        </View>
+      </View>
+      {result && (
+        <BrandedLoader
+          visible
+          success
+          label={
+            result.status === 'confirmed'
+              ? 'Attendance confirmed by the server.'
+              : 'You are already checked in for this service.'
+          }
+          onClose={resetScanner}
+          closeLabel="Continue scanning"
+        >
+          {!!result.serviceTitle && (
+            <Text style={styles.resultMessage}>{result.serviceTitle}</Text>
+          )}
+        </BrandedLoader>
+      )}
+      {!!error && (
+        <View style={styles.resultBackdrop}>
+          <View style={styles.resultCard}>
+            <Text accessibilityRole="header" style={styles.resultTitle}>
+              Check-in not confirmed
+            </Text>
+            <Text accessibilityLiveRegion="polite" style={styles.resultMessage}>
+              {error}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={resetScanner}
+              style={styles.resultButton}
+            >
+              <Text style={styles.resultButtonText}>Try again</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.replace('/(tabs)/attendance')}
+              style={styles.resultLinkButton}
+            >
+              <Text style={styles.resultLinkText}>Return to attendance</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+      <BrandedLoader visible={loading} label="Confirming your attendance…" />
+    </View>
   );
 }
 
@@ -474,45 +224,158 @@ export default function ScannerScreen() {
 // ===============================================================
 
 const styles = StyleSheet.create({
-  scannerCard: {
-    padding: 18,
-    gap: 16,
-    borderRadius: 24,
-    backgroundColor: '#26291F',
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
   },
-  scannerTitle: {
-    fontSize: 12,
-    lineHeight: 18,
-    letterSpacing: 1,
-    fontWeight: '700',
-    color: colors.primary,
+  message: {
     textAlign: 'center',
+    paddingBottom: 10,
+    color: '#fff',
+    marginTop: 50,
   },
-  scannerText: {
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.background,
-    textAlign: 'center',
+  permissionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
-  cameraFrame: {
-    width: '100%',
-    maxWidth: 380,
+  scannerHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    alignItems: 'flex-start',
+  },
+  permissionButton: {
+    minHeight: 48,
     alignSelf: 'center',
-    aspectRatio: 0.9,
-    maxHeight: 420,
-    overflow: 'hidden',
-    borderRadius: 18,
-    backgroundColor: '#171A14',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  permissionButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unfocusedContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  focusedContainer: {
+    width: 250,
+    height: 250,
+    backgroundColor: 'transparent',
+    position: 'relative',
+  },
+  instructions: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 20,
+  },
+  resultBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  resultCard: {
+    width: '100%',
+    maxWidth: 420,
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+  },
+  resultTitle: {
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  resultMessage: {
+    marginTop: 12,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.secondaryText,
+  },
+  resultButton: {
+    minHeight: 48,
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  resultButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  resultLinkButton: {
+    minHeight: 44,
+    marginTop: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraPlaceholder: { padding: 24 },
-  scanGuide: {
+  resultLinkText: {
+    color: colors.link,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  borderTopLeft: {
     position: 'absolute',
-    width: '76%',
-    aspectRatio: 1,
-    borderWidth: 2,
+    top: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
     borderColor: colors.primary,
-    borderRadius: 18,
+  },
+  borderTopRight: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderColor: colors.primary,
+  },
+  borderBottomLeft: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: colors.primary,
+  },
+  borderBottomRight: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderColor: colors.primary,
   },
 });

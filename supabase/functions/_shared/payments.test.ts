@@ -34,7 +34,10 @@ function expectPaymentError(run: () => unknown, code: string): void {
   throw new Error(`Expected ${code}, but the operation succeeded.`);
 }
 
-async function expectRequestError(request: Request, code: string): Promise<void> {
+async function expectRequestError(
+  request: Request,
+  code: string,
+): Promise<void> {
   try {
     await readJson(request);
   } catch (error) {
@@ -59,18 +62,38 @@ const transaction = {
 // AMOUNT, IDENTIFIER, AND EMAIL BOUNDARIES
 // ===============================================================
 
-Deno.test('amounts become exact integer kobo at accepted boundaries', () => {
-  assert(amountToMinor(100) === 10000, 'Minimum amount must remain valid.');
-  assert(amountToMinor(100.25) === 10025, 'Two decimal places must be retained.');
-  assert(amountToMinor(100.1) === 10010, 'One decimal place must be padded.');
-  assert(
-    amountToMinor(101.14) === 10114,
-    'Binary floating-point must not reject a valid decimal price.',
-  );
-  assert(amountToMinor(1_000_000) === 100_000_000, 'Maximum amount must remain valid.');
-});
+Deno.test(
+  'new gifts enforce NGN 500 and convert amounts to integer kobo',
+  () => {
+    assert(
+      amountToMinor(500) === 50000,
+      'The NGN 500 minimum must remain valid.',
+    );
+    assert(
+      amountToMinor(500.25) === 50025,
+      'Two decimal places must be retained.',
+    );
+    assert(amountToMinor(500.1) === 50010, 'One decimal place must be padded.');
+    assert(
+      amountToMinor(501.14) === 50114,
+      'Binary floating-point must not reject a valid decimal price.',
+    );
+    assert(
+      amountToMinor(1_000_000) === 100_000_000,
+      'Maximum amount must remain valid.',
+    );
+  },
+);
 
-for (const amount of [99.99, 1_000_000.01, 100.001, '100', null, NaN, Infinity]) {
+for (const amount of [
+  499.99,
+  1_000_000.01,
+  500.001,
+  '500',
+  null,
+  NaN,
+  Infinity,
+]) {
   Deno.test(`reject unsupported amount: ${String(amount)}`, () => {
     expectPaymentError(() => amountToMinor(amount), 'INVALID_AMOUNT');
   });
@@ -78,22 +101,37 @@ for (const amount of [99.99, 1_000_000.01, 100.001, '100', null, NaN, Infinity])
 
 Deno.test('fund identifiers accept a UUID but reject arbitrary paths', () => {
   const fund = '2c439a29-217b-4530-bc22-07e6fdfbad99';
-  assert(validateFundId(fund) === fund, 'A valid fund ID must survive unchanged.');
+  assert(
+    validateFundId(fund) === fund,
+    'A valid fund ID must survive unchanged.',
+  );
   expectPaymentError(() => validateFundId('../funds'), 'INVALID_FUND');
 });
 
-Deno.test('reference validation retains older references without accepting URL paths', () => {
-  assert(
-    validateReference('TPC_legacy') === 'TPC_legacy',
-    'Existing references must remain readable.',
-  );
-  assert(validateReference('TPC-new') === 'TPC-new', 'New references must remain readable.');
-  expectPaymentError(() => validateReference('../other/payment'), 'INVALID_REFERENCE');
-  expectPaymentError(() => validateReference(''), 'INVALID_REFERENCE');
-});
+Deno.test(
+  'reference validation retains older references without accepting URL paths',
+  () => {
+    assert(
+      validateReference('TPC_legacy') === 'TPC_legacy',
+      'Existing references must remain readable.',
+    );
+    assert(
+      validateReference('TPC-new') === 'TPC-new',
+      'New references must remain readable.',
+    );
+    expectPaymentError(
+      () => validateReference('../other/payment'),
+      'INVALID_REFERENCE',
+    );
+    expectPaymentError(() => validateReference(''), 'INVALID_REFERENCE');
+  },
+);
 
 Deno.test('checkout requires an actual email-shaped value', () => {
-  assert(validateEmail('member@example.org') === 'member@example.org', 'Keep the supplied email.');
+  assert(
+    validateEmail('member@example.org') === 'member@example.org',
+    'Keep the supplied email.',
+  );
   for (const email of [undefined, '', '08000000000', 'a b@example.org']) {
     expectPaymentError(() => validateEmail(email), 'EMAIL_REQUIRED');
   }
@@ -103,16 +141,19 @@ Deno.test('checkout requires an actual email-shaped value', () => {
 // JSON REQUEST BOUNDARIES
 // ===============================================================
 
-Deno.test('readJson accepts a JSON object with a content-type charset', async () => {
-  const result = await readJson(
-    new Request('https://example.test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: '{"amount":100}',
-    }),
-  );
-  assert(result.amount === 100, 'The object body must be returned.');
-});
+Deno.test(
+  'readJson accepts a JSON object with a content-type charset',
+  async () => {
+    const result = await readJson(
+      new Request('https://example.test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: '{"amount":100}',
+      }),
+    );
+    assert(result.amount === 100, 'The object body must be returned.');
+  },
+);
 
 Deno.test('readJson rejects a missing JSON content type', async () => {
   await expectRequestError(
@@ -125,16 +166,19 @@ Deno.test('readJson rejects a missing JSON content type', async () => {
 });
 
 for (const body of ['{', '[]', 'null']) {
-  Deno.test(`readJson rejects malformed or non-object body: ${body}`, async () => {
-    await expectRequestError(
-      new Request('https://example.test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      }),
-      'INVALID_JSON',
-    );
-  });
+  Deno.test(
+    `readJson rejects malformed or non-object body: ${body}`,
+    async () => {
+      await expectRequestError(
+        new Request('https://example.test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        }),
+        'INVALID_JSON',
+      );
+    },
+  );
 }
 
 Deno.test('readJson rejects an oversized request body', async () => {
@@ -152,14 +196,29 @@ Deno.test('readJson rejects an oversized request body', async () => {
 // TRUSTED PROVIDER DATA AND SETTLEMENT ERRORS
 // ===============================================================
 
-Deno.test('successful provider data maps to normalized settlement arguments', () => {
-  const result = settlementArguments(transaction, transaction.reference);
-  assert(result.p_reference === transaction.reference, 'Reference must match.');
-  assert(result.p_provider_transaction_id === '12345', 'Provider IDs must be text-safe.');
-  assert(result.p_amount_minor === 10025, 'Provider amount must remain integer kobo.');
-  assert(result.p_currency === 'NGN', 'Currency must remain NGN.');
-  assert(result.p_paid_at === '2026-10-22T11:00:00.000Z', 'Normalize timestamp to UTC.');
-});
+Deno.test(
+  'historical-size provider data passes settlement argument validation',
+  () => {
+    const result = settlementArguments(transaction, transaction.reference);
+    assert(
+      result.p_reference === transaction.reference,
+      'Reference must match.',
+    );
+    assert(
+      result.p_provider_transaction_id === '12345',
+      'Provider IDs must be text-safe.',
+    );
+    assert(
+      result.p_amount_minor === 10025,
+      'Provider amount must remain integer kobo.',
+    );
+    assert(result.p_currency === 'NGN', 'Currency must remain NGN.');
+    assert(
+      result.p_paid_at === '2026-10-22T11:00:00.000Z',
+      'Normalize timestamp to UTC.',
+    );
+  },
+);
 
 const rejectedProviderFields: Array<[string, unknown]> = [
   ['reference', 'TPC-different-reference'],
@@ -176,20 +235,42 @@ const rejectedProviderFields: Array<[string, unknown]> = [
 for (const [field, value] of rejectedProviderFields) {
   Deno.test(`reject unsupported provider ${field}: ${String(value)}`, () => {
     expectPaymentError(
-      () => settlementArguments({ ...transaction, [field]: value }, transaction.reference),
+      () =>
+        settlementArguments(
+          { ...transaction, [field]: value },
+          transaction.reference,
+        ),
       'PAYMENT_MISMATCH',
     );
   });
 }
 
-Deno.test('database settlement errors map to stable non-sensitive responses', () => {
-  assert(settlementError({ code: 'P0002' }).status === 404, 'Unknown reference is not found.');
-  assert(settlementError({ code: '22023' }).status === 409, 'Mismatch must not become success.');
-  assert(
-    settlementError({ code: '23505' }).status === 409,
-    'Conflicting payment must not become success.',
-  );
-  const error = settlementError({ code: 'XX000', message: 'private database detail' });
-  assert(error.status === 500, 'Unexpected database failures need a retryable failure.');
-  assert(!error.message.includes('private'), 'Database details must remain private.');
-});
+Deno.test(
+  'database settlement errors map to stable non-sensitive responses',
+  () => {
+    assert(
+      settlementError({ code: 'P0002' }).status === 404,
+      'Unknown reference is not found.',
+    );
+    assert(
+      settlementError({ code: '22023' }).status === 409,
+      'Mismatch must not become success.',
+    );
+    assert(
+      settlementError({ code: '23505' }).status === 409,
+      'Conflicting payment must not become success.',
+    );
+    const error = settlementError({
+      code: 'XX000',
+      message: 'private database detail',
+    });
+    assert(
+      error.status === 500,
+      'Unexpected database failures need a retryable failure.',
+    );
+    assert(
+      !error.message.includes('private'),
+      'Database details must remain private.',
+    );
+  },
+);

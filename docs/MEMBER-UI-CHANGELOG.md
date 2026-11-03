@@ -1,5 +1,36 @@
 # Member UI change history
 
+## 3 November 2026 — Supabase/Paystack internal alpha refinements
+
+Branch: `feature/cloud-integration-and-auth`, linked to PR #5 targeting `dev`.
+
+- Added visible selectable giving types for Offering, Tithes, Property, Church mission, Evangelist and Church outreach program. Choices bind only to active fund IDs from Supabase; unavailable types stay disabled. Unclassified active funds appear under Other active funds.
+- Added a regression case for legacy fund-name mappings. The suite now contains 44 cases; 43 passed before this case was added, so rerun the suite before committing.
+- Documented that fund-name grouping is temporary until the backend provides an explicit category field and seeds the required active funds.
+- No Supabase fund records, payment outcomes or backend routes were created by this UI change.
+
+## 3 November 2026 — PR #5 local backend correction pass
+
+The source corrections below are local and uncommitted. Validation and hosted
+deployment remain pending.
+
+- Added email-created profile provisioning with nullable unverified phone data;
+  new members remain `member` and are not staff-verified by Auth metadata.
+- Changed giving access to require confirmed Auth email/phone rather than the
+  separate staff membership-verification flag.
+- Aligned the ₦500 minimum in mobile validation, payment helpers and a forward
+  database trigger. Existing amount history remains intact during status updates.
+- Added an HTTPS Paystack return endpoint that redirects a validated reference
+  to the fixed app scheme; the app verifies every payment with the server.
+  Expo Go and web retain a manual-return fallback.
+- Restricted payment history to the current Auth user and typed its records.
+- Connected service QR scans to an authenticated server check-in with contact
+  verification, duplicate handling and a server-side WAT window.
+- Added payment/attendance/auth-storage callback tests, SQL regression coverage,
+  pinned Supabase Edge imports, pull-request CI and LF line-ending policy.
+- Encrypted native Auth session storage with chunked Expo SecureStore; web
+  preview sessions continue to use AsyncStorage.
+
 ## 30 October 2026 — unreleased member demo milestone
 
 Branch: chore/member-home-ui. Pull request target: dev. No commit, push or merge has been performed by the assistant.

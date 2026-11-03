@@ -33,26 +33,45 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export async function readJson(request: Request): Promise<Record<string, unknown>> {
+export async function readJson(
+  request: Request,
+): Promise<Record<string, unknown>> {
   if (
-    request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json'
+    request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !==
+    'application/json'
   ) {
-    throw new PaymentError(415, 'JSON_REQUIRED', 'Send an application/json request body.');
+    throw new PaymentError(
+      415,
+      'JSON_REQUIRED',
+      'Send an application/json request body.',
+    );
   }
 
   const body = await request.text();
   if (body.length > 8192) {
-    throw new PaymentError(413, 'REQUEST_TOO_LARGE', 'The request body is too large.');
+    throw new PaymentError(
+      413,
+      'REQUEST_TOO_LARGE',
+      'The request body is too large.',
+    );
   }
 
   let value: unknown;
   try {
     value = JSON.parse(body);
   } catch {
-    throw new PaymentError(400, 'INVALID_JSON', 'The request body must contain valid JSON.');
+    throw new PaymentError(
+      400,
+      'INVALID_JSON',
+      'The request body must contain valid JSON.',
+    );
   }
   if (!isRecord(value)) {
-    throw new PaymentError(400, 'INVALID_JSON', 'The request body must be a JSON object.');
+    throw new PaymentError(
+      400,
+      'INVALID_JSON',
+      'The request body must be a JSON object.',
+    );
   }
   return value;
 }
@@ -61,13 +80,13 @@ export function amountToMinor(amount: unknown): number {
   if (
     typeof amount !== 'number' ||
     !Number.isFinite(amount) ||
-    amount < 100 ||
+    amount < 500 ||
     amount > 1_000_000
   ) {
     throw new PaymentError(
       400,
       'INVALID_AMOUNT',
-      'Amount must be between NGN 100 and NGN 1,000,000.',
+      'Amount must be between NGN 500 and NGN 1,000,000.',
     );
   }
 
@@ -86,7 +105,9 @@ export function amountToMinor(amount: unknown): number {
 export function validateFundId(value: unknown): string {
   if (
     typeof value !== 'string' ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
   ) {
     throw new PaymentError(400, 'INVALID_FUND', 'Choose a valid giving fund.');
   }
@@ -96,7 +117,11 @@ export function validateFundId(value: unknown): string {
 export function validateReference(value: unknown): string {
   // Permit earlier underscore references for lookup; new references use only letters, digits and hyphens.
   if (typeof value !== 'string' || !/^[A-Za-z0-9._=-]{1,100}$/.test(value)) {
-    throw new PaymentError(400, 'INVALID_REFERENCE', 'Provide a valid payment reference.');
+    throw new PaymentError(
+      400,
+      'INVALID_REFERENCE',
+      'Provide a valid payment reference.',
+    );
   }
   return value;
 }
@@ -139,9 +164,16 @@ export async function requestPaystack(
       signal: controller.signal,
     });
     const result: unknown = await response.json();
-    if (!response.ok || !isRecord(result) || result.status !== true || !isRecord(result.data)) {
+    if (
+      !response.ok ||
+      !isRecord(result) ||
+      result.status !== true ||
+      !isRecord(result.data)
+    ) {
       // A timeout or 5xx response is uncertain: never mark a possibly created transaction as definitively failed.
-      throw new ProviderError(isRecord(result) && result.status === false && response.status < 500);
+      throw new ProviderError(
+        isRecord(result) && result.status === false && response.status < 500,
+      );
     }
     return result;
   } catch (error) {
@@ -152,13 +184,18 @@ export async function requestPaystack(
   }
 }
 
-export function settlementArguments(value: unknown, expectedReference?: string) {
+export function settlementArguments(
+  value: unknown,
+  expectedReference?: string,
+) {
   if (!isRecord(value) || value.status !== 'success') {
     throw new ProviderError();
   }
   const reference = validateReference(value.reference);
   const providerId =
-    typeof value.id === 'number' && Number.isSafeInteger(value.id) ? String(value.id) : value.id;
+    typeof value.id === 'number' && Number.isSafeInteger(value.id)
+      ? String(value.id)
+      : value.id;
 
   if (
     (expectedReference !== undefined && reference !== expectedReference) ||
@@ -167,6 +204,9 @@ export function settlementArguments(value: unknown, expectedReference?: string) 
     providerId.length > 30 ||
     typeof value.amount !== 'number' ||
     !Number.isSafeInteger(value.amount) ||
+    // Existing pending gifts can predate the ₦500 rule. New gifts are gated
+    // by amountToMinor and the database insert trigger; settle only amounts
+    // that the original schema could have stored (at least ₦100).
     value.amount < 10_000 ||
     value.amount > 100_000_000 ||
     value.currency !== 'NGN' ||
@@ -200,21 +240,36 @@ export function settlementArguments(value: unknown, expectedReference?: string) 
 // RESPONSE AND DATABASE ERROR HANDLING
 // ===============================================================
 
-export function jsonResponse(body: unknown, status = 200, headers: HeadersInit = {}): Response {
+export function jsonResponse(
+  body: unknown,
+  status = 200,
+  headers: HeadersInit = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...Object.fromEntries(new Headers(headers)), 'Content-Type': 'application/json' },
+    headers: {
+      ...Object.fromEntries(new Headers(headers)),
+      'Content-Type': 'application/json',
+    },
   });
 }
 
-export function paymentFailure(error: unknown, headers: HeadersInit = {}): Response {
+export function paymentFailure(
+  error: unknown,
+  headers: HeadersInit = {},
+): Response {
   const failure =
     error instanceof PaymentError
       ? error
-      : new PaymentError(500, 'PAYMENT_ERROR', 'The payment request could not be completed.');
+      : new PaymentError(
+          500,
+          'PAYMENT_ERROR',
+          'The payment request could not be completed.',
+        );
 
   // Do not write provider responses, credentials, references, or personal information to logs.
-  if (failure.status >= 500) console.error('Payment request failed', { code: failure.code });
+  if (failure.status >= 500)
+    console.error('Payment request failed', { code: failure.code });
   return jsonResponse(
     { error: { code: failure.code, message: failure.message } },
     failure.status,
@@ -222,11 +277,22 @@ export function paymentFailure(error: unknown, headers: HeadersInit = {}): Respo
   );
 }
 
-export function settlementError(error: { code?: string; message?: string }): PaymentError {
+export function settlementError(error: {
+  code?: string;
+  message?: string;
+}): PaymentError {
   if (error.code === 'P0002') {
-    return new PaymentError(404, 'OFFERING_NOT_FOUND', 'The payment reference was not found.');
+    return new PaymentError(
+      404,
+      'OFFERING_NOT_FOUND',
+      'The payment reference was not found.',
+    );
   }
-  if (error.code === '22023' || error.code === '23505' || error.code === '23514') {
+  if (
+    error.code === '22023' ||
+    error.code === '23505' ||
+    error.code === '23514'
+  ) {
     return new PaymentError(
       409,
       'PAYMENT_MISMATCH',

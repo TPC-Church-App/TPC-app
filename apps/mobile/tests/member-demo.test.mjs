@@ -18,6 +18,11 @@ import {
   PAYMENT_STATUSES,
 } from '../utils/member-demo.ts';
 import { parseGivingAmount } from '../utils/giving.ts';
+import { getGivingOptionId } from '../utils/giving-categories.ts';
+import {
+  parsePaystackCheckout,
+  parsePaymentVerification,
+} from '../utils/paystack.ts';
 import { MEMBER_ROUTES } from '../constants/member-pages.ts';
 const payment = {
   reference: 'DEMO-test-001',
@@ -62,11 +67,13 @@ test('amount parsing keeps exact kobo and rejects malformed/out-of-range money',
     valid: true,
     amountMinor: 100025,
   });
-  assert.deepEqual(parseGivingAmount('100'), {
+  assert.deepEqual(parseGivingAmount('500'), {
     valid: true,
-    amountMinor: 10000,
+    amountMinor: 50000,
   });
   for (const value of [
+    '100',
+    '499.99',
     '99.99',
     '1,000,000.01',
     '1,00',
@@ -77,6 +84,66 @@ test('amount parsing keeps exact kobo and rejects malformed/out-of-range money',
     '',
   ])
     assert.equal(parseGivingAmount(value).valid, false);
+});
+
+test('live fund names map to the visible giving choices without fake IDs', () => {
+  assert.equal(getGivingOptionId('Offering'), 'offering');
+  assert.equal(getGivingOptionId('Tithes'), 'tithe');
+  assert.equal(getGivingOptionId('Building project'), 'property');
+  assert.equal(getGivingOptionId('Missions'), 'mission');
+  assert.equal(getGivingOptionId('Evangelist support'), 'evangelist');
+  assert.equal(getGivingOptionId('Church outreach program'), 'outreach');
+  assert.equal(getGivingOptionId('Food bank fund'), null);
+});
+
+// ===============================================================
+// LIVE PAYMENT RESPONSE SHAPE REGRESSIONS
+// ===============================================================
+
+test('Paystack handoff accepts the documented nested response only', () => {
+  const response = {
+    status: true,
+    data: {
+      authorization_url: 'https://checkout.paystack.com/example',
+      access_code: 'sample-code',
+      reference: 'TPC-example-reference',
+    },
+  };
+  assert.deepEqual(parsePaystackCheckout(response), {
+    authorizationUrl: 'https://checkout.paystack.com/example',
+    reference: 'TPC-example-reference',
+  });
+  assert.equal(parsePaystackCheckout({ ...response, status: false }), null);
+  assert.equal(
+    parsePaystackCheckout({
+      ...response,
+      data: {
+        ...response.data,
+        authorization_url: 'http://checkout.paystack.com/example',
+      },
+    }),
+    null,
+  );
+  assert.equal(
+    parsePaystackCheckout({
+      ...response,
+      data: {
+        ...response.data,
+        authorization_url: 'https://example.com/pay',
+      },
+    }),
+    null,
+  );
+});
+
+test('payment verification accepts only documented server statuses', () => {
+  assert.equal(
+    parsePaymentVerification({ status: 'successful' }),
+    'successful',
+  );
+  assert.equal(parsePaymentVerification({ status: 'pending' }), 'pending');
+  assert.equal(parsePaymentVerification({ status: 'made-up' }), null);
+  assert.equal(parsePaymentVerification({}), null);
 });
 test('saved payment validation rejects real, malformed and unsafe records', () => {
   assert.equal(validDemoPayment(payment), true);
@@ -269,4 +336,36 @@ test('additional routes stay navigable rather than using href-null hiding', asyn
     'community',
   ])
     await access(new URL('../app/(tabs)/' + name + '.tsx', import.meta.url));
+});
+
+// ===============================================================
+// MEMBER TAB BAR LAYOUT REGRESSION
+// Auxiliary routes must stay reachable without squeezing visible tabs.
+// ===============================================================
+
+test('auxiliary routes are hidden without consuming visible tab slots', async () => {
+  const layout = await readFile(
+    new URL('../app/(tabs)/_layout.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(layout, /tabBarItemStyle:\s*\{\s*display:\s*'none'/);
+  for (const name of [
+    'attendance',
+    'checkout',
+    'community',
+    'giving',
+    'history',
+    'messages',
+    'more',
+    'payment-return',
+    'receipt',
+    'scanner',
+    'sermons',
+    'settings',
+  ]) {
+    assert.match(
+      layout,
+      new RegExp(`name="${name}" options=\\{hiddenRouteOptions\\}`),
+    );
+  }
 });
