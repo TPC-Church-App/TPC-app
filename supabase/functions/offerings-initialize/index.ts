@@ -58,7 +58,7 @@ export async function handleInitialize(req: Request): Promise<Response> {
 
     let callbackUrl: URL;
     try {
-      callbackUrl = new URL(`${appUrl.replace(/\/$/, '')}/payment/callback`);
+      callbackUrl = new URL(`tpc://payment/callback`);
       if (
         !['http:', 'https:'].includes(callbackUrl.protocol) ||
         callbackUrl.username ||
@@ -85,20 +85,6 @@ export async function handleInitialize(req: Request): Promise<Response> {
     if (authError || !user)
       throw new PaymentError(401, 'UNAUTHORIZED', 'Sign in to initialize an offering.');
 
-    const { data: profile, error: profileError } = await memberClient
-      .from('profiles')
-      .select('is_verified')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (profileError)
-      throw new PaymentError(500, 'PROFILE_CHECK_FAILED', 'Membership could not be checked.');
-    if (!profile || profile.is_verified !== true) {
-      throw new PaymentError(
-        403,
-        'MEMBERSHIP_PENDING',
-        'Membership verification is required before giving.',
-      );
-    }
 
     const body = await readJson(req);
     const amountMinor = amountToMinor(body.amount);
