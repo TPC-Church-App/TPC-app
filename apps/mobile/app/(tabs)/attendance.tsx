@@ -125,7 +125,7 @@ export default function AttendanceScreen() {
   return (
     <GivingPage
       title="Attendance & check-in"
-      subtitle="Be part of the gathering. Note: Offline queue and witness flows are demos and not fully connected yet."
+      subtitle="Be part of the gathering. Scanner, offline queue and witness flows are previews; no attendance is sent to the server yet."
       sectionLabel="ATTENDANCE"
     >
       {!ready && !error && (
@@ -159,7 +159,7 @@ export default function AttendanceScreen() {
         </Text>
       </View>
       <GivingButton
-        label={attempt ? 'View current check-in' : 'Scan service QR code'}
+        label={attempt ? 'View current check-in' : 'Preview QR scanner'}
         disabled={
           !ready ||
           busy ||
@@ -326,7 +326,8 @@ export default function AttendanceScreen() {
             {['queued', 'syncError'].includes(state(record)) && (
               <>
                 <Text style={ui.caption}>
-                  Simulate upload and server response (Demo only - Coming in V2):
+                  Simulate upload and server response (Demo only - Coming in
+                  V2):
                 </Text>
                 <GivingButton
                   label="Preview confirmed attendance"

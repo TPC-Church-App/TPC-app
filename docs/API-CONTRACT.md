@@ -1,14 +1,17 @@
 # TPC Church App - API Contract
 
-**Revision:** 1.2 (30 October 2026)
+**Revision:** 1.3 (3 November 2026)
 **Status:** Repository implementation reference; hosted behaviour unverified.
 
 ## Boundaries
 
-The mobile app contains guarded member-demo journeys, including saved device state, attendance and payment scenario screens.
-It does not call Supabase Auth or payment functions. This contract describes
-existing payment source code and identifies the missing integration contracts.
-It does not imply that functions are deployed or production-ready.
+The mobile app connects email/password sign-in to Supabase Auth and invokes the
+offering initialization and verification functions. The camera scanner is an
+alpha preview only: it detects a QR code and explicitly reports that it did not
+record attendance. No `attendance-check-in` function or agreed response
+contract appears in this repository branch. Offline attendance and witness
+controls remain demos. This contract describes checked-in source, not proof that
+hosted functions or database policies are deployed and working.
 
 Local function base: `http://localhost:54321/functions/v1`.
 Hosted base: `https://<project-ref>.supabase.co/functions/v1`.
@@ -29,6 +32,11 @@ The confirmed product requirement grants ordinary member access immediately
 after phone or email OTP verification, without usher/admin approval. Profile
 provisioning and these checks need reviewed backend changes before integration.
 Do not make the frontend set protected role or verification fields.
+
+Registration currently collects a self-reported whole-number age. The UI
+rejects values below four; the backend must validate the same boundary before
+creating or updating a profile. This entry does not verify a person's age or
+identity.
 
 ## Response conventions
 
@@ -64,8 +72,10 @@ Example body (synthetic values):
 }
 ```
 
-- `amount`: numeric naira, 100 to 1,000,000 inclusive, at most two decimals.
-  These are current code limits; final configurable product limits remain open.
+- `amount`: numeric naira, currently 100 to 1,000,000 inclusive in the checked-in
+  handler, at most two decimals. Product policy requires a ₦500 minimum. The
+  backend handler and tests must enforce 500 before the alpha handoff; frontend
+  validation alone does not protect the endpoint.
 - `fund_id`: UUID of an existing active fund. The example UUID is not seed data.
 - `email`: checkout email when Auth supplies none. The handler prefers `user.email`.
 - Ownership, reference, NGN currency and pending status are assigned server-side.
@@ -122,6 +132,43 @@ to `abandoned`, `failed`, `ongoing`, `pending`, `processing`, `queued` or
 Those non-success results do not implement a full refund/reversal workflow.
 Repeated successful settlement is guarded against duplicate payment records.
 
+## Mobile payment handoff
+
+`supabase.functions.invoke('offerings-initialize', ...)` returns the function's
+JSON body as `data`. The mobile app must read the nested Paystack fields at
+`data.data.authorization_url`, `data.data.access_code` and
+`data.data.reference`; a flat `data.checkout_url` response is not the current
+handler contract. Before opening the URL, the app checks the successful
+initialization flag, required fields and HTTPS Paystack checkout host.
+
+The app opens the hosted Paystack page and asks the member to return to TPC and
+request a status check. An Android browser result of `opened` means only that the
+browser launched. A closed or cancelled browser also does not prove payment. The
+app calls `offerings-verify` with the reference and marks a gift successful only
+when the server returns `{"status":"successful"}`. Pending, failed, abandoned,
+reversed and unrecognized outcomes remain visibly distinct. The current
+`APP_URL/payment/callback` destination is not connected to a mobile deep link or
+verified web return page, so callback-based return handling remains unfinished.
+
+Payment selection stays within Paystack's secure hosted checkout. Available
+methods depend on the church Paystack account configuration, transaction
+currency and provider/device eligibility. The app must not claim Apple Pay,
+Google Pay, bank transfer or card availability before Paystack returns or shows
+that method for the actual transaction.
+
+## Attendance check-in contract still required
+
+The current scanner does not send the scanned value to a server or claim that
+attendance was recorded. No checked-in `attendance-check-in` function or agreed
+response schema exists in this branch. This confirms a repository gap; it does
+not prove that no function was deployed manually in the hosted project.
+
+Proposed response contract for backend review: return HTTP success and
+`{ "status": "confirmed", "service_title": "..." }` only after signed,
+service-specific pass validation and caller authorization succeed. The backend
+owner must agree the request and response schema, enforce replay protection and
+idempotency, and add function tests before the mobile client connects this flow.
+
 ## POST /paystack-webhook
 
 Source: `supabase/functions/paystack-webhook/index.ts`.
@@ -170,9 +217,15 @@ README.md rather than creating a second competing progress checklist.
 
 ## Member-demo adapters and proposed catalog contract (30 October 2026)
 
-The frontend deliberately uses demo data only. No endpoint was added or changed in this milestone. `services/demo-storage` stores device demo state, not an Auth session or a shared member database. A phone/email entered on sign-in does not select a saved device profile.
+The current branch uses Supabase Auth, the two offering functions described
+above, and a direct member-owned `offerings` history query. The history page
+reloads when it becomes active. The attendance scanner currently provides only
+a camera preview and does not submit attendance. Offline attendance, witness
+confirmation, other member screens and the demo workspace remain device-local;
+they do not create shared member records or prove server outcomes. Hosted
+behaviour still needs an environment-specific acceptance check.
 
-The backend owner must agree a fund/campaign discovery contract before live checkout. Proposed fields: stable UUID `id`, display `name`, `description`, category (offering/tithe/property/general/program), `is_active`, currency, display order, optional campaign dates and updated-at/version. These are adapter requirements, not confirmed database fields or an available endpoint. Agree whether campaign dates affect checkout eligibility, fund archival and retention of historical names/categories. The server remains authoritative for availability, amount limits and ownership; the frontend must not create/activate funds.
+The backend owner must agree a fund/campaign discovery contract before live checkout. Proposed fields: stable UUID `id`, display `name`, `description`, category (`offering`, `tithe`, `property`, `mission`, `evangelist`, `outreach`, or `other`), `is_active`, currency, display order, optional campaign dates and updated-at/version. These are adapter requirements, not confirmed database fields or an available endpoint. Agree whether campaign dates affect checkout eligibility, fund archival and retention of historical names/categories. The current mobile UI temporarily groups legacy fund names by keywords; unknown active funds appear under Other active funds. Add a server-owned category field so renamed funds and administrator-created campaigns do not depend on name matching. The server remains authoritative for availability, amount limits and ownership; the frontend must not create/activate funds.
 
 History needs cursor pagination, fund/category snapshots, integer minor-unit amount, currency, reference, created/updated timestamps and authoritative payment status. Receipts need a server-owned receipt identifier and eligibility decision; client return parameters and HTTP 200 alone never establish success. Map all statuses documented above. Demo replay rules only protect the local preview and do not implement reconciliation or refunds.
 
@@ -180,6 +233,6 @@ Remaining member contracts also need media/content URLs and permissions, notific
 
 ## Partner review required before live integration
 
-The member demo UI is ready to be reviewed against these proposed contracts, subject to its final validation. No agreement is recorded on behalf of the backend owner. Confirm: (1) phone/email OTP request/verification/resend, expiry, error codes and session response; (2) profile creation/fetch/update and photo storage; (3) service-specific signed QR, trusted time, witness eligibility and offline evidence/idempotency; (4) active fund/campaign discovery, checkout return, reconciliation, paginated history and receipt eligibility; (5) department/roster decisions and server-owned permissions; (6) content/media, read-state/preferences, badges and both sponsorship/invitation types.
+The member UI needs an agreed backend contract and environment-specific acceptance. No agreement is recorded on behalf of the backend owner. Confirm: (1) phone/email OTP request/verification/resend, expiry, errors and session response; (2) email/password alpha signup profile provisioning, profile creation/fetch/update and photo storage; (3) the attendance endpoint and exact `confirmed` response, signed QR validation, witness eligibility and offline evidence/idempotency; (4) ₦500 minimum enforcement in the initialize handler and database constraint, active fund/campaign discovery, checkout return, reconciliation, paginated history and receipt eligibility; (5) ordinary member access after contact verification without usher/admin approval; (6) department/roster decisions and server-owned permissions; (7) content/media, read-state/preferences, badges and both sponsorship/invitation types.
 
 Confirm successful, pending, rejected, expired, denied, network-error and retry responses for each relevant flow. The frontend owner connects these APIs and tests integrated behaviour after the backend owner supplies them. Native demo recovery and mock results do not establish production authentication or financial integrity.

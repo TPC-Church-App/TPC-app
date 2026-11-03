@@ -1,5 +1,14 @@
 # Member UI change history
 
+## 3 November 2026 — Supabase/Paystack internal alpha refinements
+
+Branch: `feature/cloud-integration-and-auth`, linked to PR #5 targeting `dev`.
+
+- Added visible selectable giving types for Offering, Tithes, Property, Church mission, Evangelist and Church outreach program. Choices bind only to active fund IDs from Supabase; unavailable types stay disabled. Unclassified active funds appear under Other active funds.
+- Added a regression case for legacy fund-name mappings. The suite now contains 44 cases; 43 passed before this case was added, so rerun the suite before committing.
+- Documented that fund-name grouping is temporary until the backend provides an explicit category field and seeds the required active funds.
+- No Supabase fund records, payment outcomes or backend routes were created by this UI change.
+
 ## 30 October 2026 — unreleased member demo milestone
 
 Branch: chore/member-home-ui. Pull request target: dev. No commit, push or merge has been performed by the assistant.

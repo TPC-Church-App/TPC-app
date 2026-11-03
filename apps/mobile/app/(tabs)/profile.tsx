@@ -1,10 +1,10 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/profile.tsx
-// Edit, save and explicitly load a device demo profile.
+// Show account metadata with editable device-only profile details.
 // ===============================================================
 
 // Saved profiles belong to this demo device, not to the contact entered at login.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -18,6 +18,7 @@ import DepartmentRequest from '@/components/department-request';
 import MemberField from '@/components/member-field';
 import { useMemberDraft } from '@/store/member-draft';
 import { profileError } from '@/utils/member-demo';
+import { supabase } from '@/lib/supabase';
 
 // ===============================================================
 // PROFILE DRAFT AND EDIT STATE
@@ -40,11 +41,46 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [accountProfile, setAccountProfile] = useState({
+    firstName: '',
+    surname: '',
+    age: '',
+  });
   const [fields, setFields] = useState({
     firstName: draft.firstName,
     surname: draft.surname,
     age: draft.age,
   });
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth
+      .getSession()
+      .then(({ data: sessionData }) => {
+        if (!active) return;
+        const metadata = sessionData.session?.user.user_metadata;
+        const fullName =
+          typeof metadata?.full_name === 'string' ? metadata.full_name : '';
+        const [first, ...rest] = fullName.trim().split(/\s+/);
+        setAccountProfile({
+          firstName: first ?? '',
+          surname: rest.join(' '),
+          age: typeof metadata?.age === 'string' ? metadata.age : '',
+        });
+      })
+      .catch(() => {
+        // Keep the existing device preview when no auth session can be read.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const displayedProfile = {
+    firstName: draft.firstName || accountProfile.firstName,
+    surname: draft.surname || accountProfile.surname,
+    age: draft.age || accountProfile.age,
+  };
 
   // ===============================================================
   // PROFILE EDIT AND SAVE ACTIONS
@@ -52,9 +88,9 @@ export default function ProfileScreen() {
 
   function edit() {
     setFields({
-      firstName: draft.firstName,
-      surname: draft.surname,
-      age: draft.age,
+      firstName: displayedProfile.firstName,
+      surname: displayedProfile.surname,
+      age: displayedProfile.age,
     });
     setEditing(true);
     setNotice('');
@@ -83,10 +119,14 @@ export default function ProfileScreen() {
       <View style={ui.card}>
         <ProfilePhoto />
         <Text style={ui.heading}>
-          {[draft.firstName, draft.surname].filter(Boolean).join(' ') ||
-            'Welcome to TPC'}
+          {[displayedProfile.firstName, displayedProfile.surname]
+            .filter(Boolean)
+            .join(' ') || 'Welcome to TPC'}
         </Text>
-        <Text style={ui.caption}>Local demo profile</Text>
+        <Text style={ui.caption}>
+          Account name comes from sign-up details; edits and photos remain a
+          device preview until profile sync is connected.
+        </Text>
       </View>
       {!ready && !storageError && (
         <Text style={ui.body}>Loading saved profile…</Text>
@@ -161,12 +201,14 @@ export default function ProfileScreen() {
         ) : (
           <>
             <Text style={ui.body}>
-              First name: {draft.firstName || 'Not provided'}
+              First name: {displayedProfile.firstName || 'Not provided'}
             </Text>
             <Text style={ui.body}>
-              Surname: {draft.surname || 'Not provided'}
+              Surname: {displayedProfile.surname || 'Not provided'}
             </Text>
-            <Text style={ui.body}>Age: {draft.age || 'Not provided'}</Text>
+            <Text style={ui.body}>
+              Age: {displayedProfile.age || 'Not provided'}
+            </Text>
             <GivingButton label="Edit profile" onPress={edit} />
           </>
         )}

@@ -1,127 +1,450 @@
+// ===============================================================
 // apps/mobile/app/(tabs)/giving.tsx
-import { useEffect, useState } from 'react';
+// Load giving funds and start checkout through the backend service.
+// ===============================================================
+import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Keyboard, Pressable, Text, TextInput, View, Alert } from 'react-native';
+import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/theme';
 import {
   GivingButton,
+  GivingChoice,
   GivingPage,
   givingStyles as ui,
 } from '@/components/giving-ui';
-import { parseGivingAmount } from '@/utils/giving';
+import { MIN_GIVING_NAIRA, parseGivingAmount } from '@/utils/giving';
+import {
+  getGivingOptionId,
+  GIVING_OPTIONS,
+  type GivingOptionId,
+} from '@/utils/giving-categories';
+import {
+  parsePaystackCheckout,
+  parsePaymentVerification,
+  type VerifiedPaymentStatus,
+} from '@/utils/paystack';
+
+const QUICK_AMOUNTS = [MIN_GIVING_NAIRA, 1000, 2000, 5000, 10000];
+
+type ActiveFund = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+type SelectionId = GivingOptionId | 'other';
+
+// ===============================================================
+// PRESENT VERIFIED PAYMENT STATES IN PLAIN LANGUAGE
+// Only the server's verification response determines success.
+// ===============================================================
+
+function getPaymentStatusMessage(status: VerifiedPaymentStatus) {
+  switch (status) {
+    case 'successful':
+      return 'Payment confirmed by the server. Your history is refreshing.';
+    case 'pending':
+    case 'ongoing':
+    case 'processing':
+    case 'queued':
+      return 'The server has not confirmed this payment yet. Wait briefly, then check again.';
+    case 'abandoned':
+      return 'This checkout was cancelled. It has not been marked as paid.';
+    case 'failed':
+      return 'The server reports that this payment failed. You can start a new checkout.';
+    case 'reversed':
+      return 'The server reports that this payment was reversed. Contact the church office if you need help.';
+    default:
+      return 'The server returned an unrecognized payment status.';
+  }
+}
+
+// ===============================================================
+// GIVING STATE AND FUND LOADING
+// ===============================================================
 
 export default function GivingScreen() {
-  const [funds, setFunds] = useState<any[]>([]);
+  const [funds, setFunds] = useState<ActiveFund[]>([]);
+  const [categoryId, setCategoryId] = useState<SelectionId | null>(null);
   const [fundId, setFundId] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
+  const [fundsError, setFundsError] = useState('');
+  const [fundsLoading, setFundsLoading] = useState(true);
+  const [pendingReference, setPendingReference] = useState<string | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchFunds() {
-      const { data, error } = await supabase.from('funds').select('*');
-      if (data) setFunds(data);
-      if (error) console.error("Error fetching funds:", error);
+  // ===============================================================
+  // LOAD ACTIVE FUNDS WITHOUT EXPOSING RAW DATABASE ERRORS
+  // ===============================================================
+
+  const loadFunds = useCallback(async () => {
+    setFundsLoading(true);
+    try {
+      const { data, error: queryError } = await supabase
+        .from('funds')
+        .select('id, name, description, is_active')
+        .eq('is_active', true);
+      if (queryError) {
+        setFunds([]);
+        setFundId(null);
+        setFundsError(
+          'Giving options could not load. Check your connection and retry.',
+        );
+        return;
+      }
+      const activeFunds = (data ?? []).flatMap((fund): ActiveFund[] => {
+        if (
+          typeof fund.id !== 'string' ||
+          typeof fund.name !== 'string' ||
+          fund.is_active !== true
+        ) {
+          return [];
+        }
+        return [
+          {
+            id: fund.id,
+            name: fund.name,
+            description:
+              typeof fund.description === 'string' ? fund.description : null,
+          },
+        ];
+      });
+      setFunds(activeFunds);
+      setFundId((current) =>
+        activeFunds.some((fund) => fund.id === current) ? current : null,
+      );
+      setFundsError('');
+    } catch {
+      setFunds([]);
+      setFundId(null);
+      setFundsError(
+        'Giving options could not load. Check your connection and retry.',
+      );
+    } finally {
+      setFundsLoading(false);
     }
-    fetchFunds();
   }, []);
+
+  // ===============================================================
+  // LOAD AVAILABLE GIVING FUNDS
+  // ===============================================================
+
+  useEffect(() => {
+    void loadFunds();
+  }, [loadFunds]);
+
+  const hasOtherFunds = funds.some((fund) => !getGivingOptionId(fund.name));
+  const givingOptions = hasOtherFunds
+    ? [...GIVING_OPTIONS, { id: 'other' as const, label: 'Other active funds' }]
+    : GIVING_OPTIONS;
+  const categoryFunds = categoryId
+    ? funds.filter((fund) =>
+        categoryId === 'other'
+          ? !getGivingOptionId(fund.name)
+          : getGivingOptionId(fund.name) === categoryId,
+      )
+    : [];
+
+  // ===============================================================
+  // VALIDATE GIFT AND START CHECKOUT
+  // ===============================================================
 
   async function handleGive() {
     Keyboard.dismiss();
     const fund = funds.find((f) => f.id === fundId);
     if (!fund) return setError('Choose a giving category.');
-    
+
     const result = parseGivingAmount(amount);
     if (!result.valid) return setError(result.message);
-
-    // Enforce ₦500 minimum (50,000 kobo)
-    if (result.amountMinor < 50000) {
-      return setError('Minimum offering is ₦500.');
-    }
 
     setError('');
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('offerings-initialize', {
-        body: { amount: result.amountMinor / 100, fund_id: fund.id },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        'offerings-initialize',
+        {
+          body: { amount: result.amountMinor / 100, fund_id: fund.id },
+        },
+      );
 
       if (error) throw error;
-      
-      if (data?.checkout_url) {
-        const browserResult = await WebBrowser.openBrowserAsync(data.checkout_url);
-        
-        if (browserResult.type === 'dismiss' || browserResult.type === 'opened') {
-          const verify = await supabase.functions.invoke('offerings-verify', {
-            body: { reference: data.reference }
-          });
-          
-          if (verify.data?.status === 'successful') {
-             Alert.alert("Success", "Your offering was received!");
-             router.navigate('/(tabs)/history');
-          } else {
-             Alert.alert("Pending", "We are verifying your payment. It will appear in your history soon.");
-             router.navigate('/(tabs)/history');
-          }
-        }
+
+      const checkout = parsePaystackCheckout(data);
+      if (!checkout) {
+        setError(
+          'The payment service returned an unexpected response. Try again.',
+        );
+        return;
       }
-    } catch (err: any) {
-      Alert.alert("Payment Error", err.message || "Could not start payment.");
+
+      setPendingReference(checkout.reference);
+      setPaymentNotice(
+        'Secure checkout opened. Return here and check the server status before treating the payment as complete.',
+      );
+      await WebBrowser.openBrowserAsync(checkout.authorizationUrl);
+    } catch {
+      setError(
+        'We could not start or open secure checkout. Check your connection and try again.',
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  // ===============================================================
+  // VERIFY ONLY AFTER THE MEMBER RETURNS FROM CHECKOUT
+  // Android may report that a browser opened before the member pays.
+  // ===============================================================
+
+  async function checkPaymentStatus() {
+    if (!pendingReference || loading) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error: verifyError } = await supabase.functions.invoke(
+        'offerings-verify',
+        { body: { reference: pendingReference } },
+      );
+      if (verifyError) {
+        setPaymentNotice(
+          'The server could not confirm the payment status. Your gift has not been marked successful. Try checking again.',
+        );
+        return;
+      }
+
+      const status = parsePaymentVerification(data);
+      if (!status) {
+        setPaymentNotice(
+          'The server returned an unrecognized payment status. Your gift has not been marked successful.',
+        );
+        return;
+      }
+
+      setPaymentNotice(getPaymentStatusMessage(status));
+      if (status === 'successful') {
+        router.navigate('/(tabs)/history');
+      }
+    } catch {
+      setPaymentNotice(
+        'We could not check the payment status. Check your connection and try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ===============================================================
+  // GIVING INTERFACE
+  // ===============================================================
+
   return (
-    <GivingPage title="Give with purpose" subtitle="Choose where your gift will make a difference.">
+    <GivingPage
+      title="Give with purpose"
+      subtitle="Choose where your gift will make a difference."
+    >
       <View style={[ui.card, ui.hero]}>
         <Text style={ui.heading}>Every gift has a purpose</Text>
-        <Text style={ui.heroBody}>Support worship, church projects and care for our community.</Text>
+        <Text style={ui.heroBody}>
+          Support worship, church projects and care for our community.
+        </Text>
       </View>
 
-      <Text accessibilityRole="header" style={ui.heading}>Choose your giving</Text>
-      <View accessibilityRole="radiogroup" style={ui.stack}>
-        {funds.map((fund) => {
-          const selected = fundId === fund.id;
+      <Text accessibilityRole="header" style={ui.heading}>
+        What would you like to give?
+      </Text>
+      <View accessibilityRole="radiogroup" style={ui.wrap}>
+        {givingOptions.map((option) => {
+          const matchingFunds = funds.filter((fund) =>
+            option.id === 'other'
+              ? !getGivingOptionId(fund.name)
+              : getGivingOptionId(fund.name) === option.id,
+          );
+          const selected = categoryId === option.id;
+          const unavailable =
+            matchingFunds.length === 0 || fundsLoading || !!fundsError;
           return (
             <Pressable
-              key={fund.id}
-              onPress={() => { setFundId(fund.id); setError(''); }}
-              style={({ pressed }) => [ui.card, selected && ui.selected, pressed && ui.pressed]}
+              key={option.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected, disabled: unavailable }}
+              disabled={unavailable}
+              onPress={() => {
+                setCategoryId(option.id);
+                setFundId(
+                  matchingFunds.length === 1 ? matchingFunds[0].id : null,
+                );
+                setError('');
+              }}
+              style={({ pressed }) => [
+                ui.choice,
+                selected && ui.selected,
+                unavailable && ui.disabled,
+                pressed && ui.pressed,
+              ]}
             >
-              <View style={ui.row}>
-                <Text style={ui.heading}>{fund.name}</Text>
-                {selected && <Text style={ui.link}>Selected</Text>}
-              </View>
-              <Text style={ui.body}>{fund.description}</Text>
+              <Text style={ui.link}>{option.label}</Text>
+              <Text style={ui.caption}>
+                {unavailable
+                  ? 'Not available yet'
+                  : `${matchingFunds.length} active fund${matchingFunds.length === 1 ? '' : 's'}`}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
+      {fundsLoading && <Text style={ui.body}>Loading giving options…</Text>}
+      {!fundsLoading && funds.length === 0 && fundsError === '' && (
+        <Text style={ui.body}>
+          Giving types will become available when the church publishes active
+          funds. No payment option has been set up in the connected account yet.
+        </Text>
+      )}
+
+      {categoryId && !fundsLoading && categoryFunds.length > 0 && (
+        <View style={ui.stack}>
+          {categoryFunds.length > 1 && (
+            <Text accessibilityRole="header" style={ui.heading}>
+              Choose a{' '}
+              {givingOptions
+                .find((item) => item.id === categoryId)
+                ?.label.toLowerCase()}{' '}
+              fund
+            </Text>
+          )}
+          {categoryFunds.map((fund) => {
+            const selected = fundId === fund.id;
+            return (
+              <Pressable
+                key={fund.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  setFundId(fund.id);
+                  setError('');
+                }}
+                style={({ pressed }) => [
+                  ui.card,
+                  selected && ui.selected,
+                  pressed && ui.pressed,
+                ]}
+              >
+                <View style={ui.row}>
+                  <Text style={ui.heading}>{fund.name}</Text>
+                  {selected && <Text style={ui.link}>Selected</Text>}
+                </View>
+                {!!fund.description && (
+                  <Text style={ui.body}>{fund.description}</Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {categoryId && !fundsLoading && categoryFunds.length === 0 && (
+        <Text style={ui.body}>
+          This giving type has no active fund yet. Please choose another type or
+          contact the church office.
+        </Text>
+      )}
+
+      {fundsError !== '' && (
+        <View style={ui.card}>
+          <Text accessibilityRole="alert" style={ui.error}>
+            {fundsError}
+          </Text>
+          <GivingButton
+            label="Retry loading giving options"
+            secondary
+            onPress={() => void loadFunds()}
+          />
+        </View>
+      )}
+
       <View style={ui.card}>
         <Text style={ui.label}>Amount (NGN)</Text>
+        <Text style={ui.caption}>
+          Choose a suggested amount or enter another amount.
+        </Text>
+        <View accessibilityRole="radiogroup" style={ui.wrap}>
+          {QUICK_AMOUNTS.map((quickAmount) => {
+            const selected = amount === String(quickAmount);
+            return (
+              <GivingChoice
+                key={quickAmount}
+                label={`₦${quickAmount.toLocaleString('en-NG')}`}
+                selected={selected}
+                onPress={() => {
+                  setAmount(String(quickAmount));
+                  setError('');
+                }}
+              />
+            );
+          })}
+        </View>
         <TextInput
           style={ui.input}
           value={amount}
-          onChangeText={(val) => { setAmount(val); setError(''); }}
-          placeholder="For example, 1000"
+          onChangeText={(val) => {
+            setAmount(val);
+            setError('');
+          }}
+          accessibilityLabel="Gift amount in naira"
+          placeholder="Other amount"
           placeholderTextColor={colors.secondaryText}
           keyboardType="decimal-pad"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
-        <Text style={ui.caption}>Enter ₦500–₦1,000,000.</Text>
-        
-        {error !== '' && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}
-        
-        <GivingButton 
-          label={loading ? "Processing..." : "Proceed to Pay"} 
-          onPress={handleGive} 
-          disabled={loading} 
+        <Text style={ui.caption}>
+          The maximum gift is ₦{(1_000_000).toLocaleString('en-NG')}.
+        </Text>
+
+        {error !== '' && (
+          <Text accessibilityRole="alert" style={ui.error}>
+            {error}
+          </Text>
+        )}
+
+        <GivingButton
+          label={loading ? 'Processing...' : 'Proceed to Pay'}
+          onPress={handleGive}
+          disabled={loading || fundsLoading || !fundId || !!fundsError}
         />
       </View>
+
+      {pendingReference && (
+        <View style={ui.card}>
+          <Text style={ui.heading}>Payment status</Text>
+          <Text accessibilityLiveRegion="polite" style={ui.body}>
+            {paymentNotice}
+          </Text>
+          <Text style={ui.caption}>Reference: {pendingReference}</Text>
+          <GivingButton
+            label={
+              loading ? 'Checking with the server…' : 'Check payment status'
+            }
+            onPress={() => void checkPaymentStatus()}
+            disabled={loading}
+          />
+          <GivingButton
+            label="Start another gift"
+            secondary
+            onPress={() => {
+              setPendingReference(null);
+              setPaymentNotice('');
+              setError('');
+            }}
+            disabled={loading}
+          />
+        </View>
+      )}
     </GivingPage>
   );
 }
