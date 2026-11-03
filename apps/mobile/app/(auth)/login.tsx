@@ -153,7 +153,7 @@ export default function LoginScreen() {
             message: getSignInErrorMessage(error.code),
           });
         } else {
-          start(() => router.replace('/(tabs)/home' as any));
+          start(() => router.replace('/(tabs)/home'));
         }
       } catch {
         setFeedback({

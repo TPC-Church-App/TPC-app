@@ -44,6 +44,7 @@ export default function RegisterScreen() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const selectedCountry = PHONE_COUNTRIES.find(
     (item) => item.code === country,
   )!;
@@ -94,6 +95,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     setError('');
+    setNotice('');
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -101,8 +103,8 @@ export default function RegisterScreen() {
         password: password,
         options: {
           data: {
-            // Auth metadata stores these details; profile provisioning must
-            // be agreed with the backend because phone is not verified here.
+            // Keep submitted details available to the server-side profile
+            // trigger; this phone value is not treated as verified contact.
             full_name: `${cleanedFirstName} ${cleanedSurname}`,
             phone: phoneResult.internationalNumber,
             age: age.trim(),
@@ -112,12 +114,24 @@ export default function RegisterScreen() {
 
       if (error) throw error;
 
-      // If email confirmation is off, they are logged in immediately
-      if (data.session) {
+      const contactVerified = Boolean(
+        data.user?.email_confirmed_at || data.user?.phone_confirmed_at,
+      );
+      if (data.session && contactVerified) {
         router.replace('/(tabs)/home');
       } else {
-        alert('Registration successful! Please check your email to verify.');
-        router.push('/(auth)/login');
+        if (data.session) {
+          const { error: signOutError } = await supabase.auth.signOut();
+          if (signOutError) {
+            setError(
+              'Your account was created, but the unverified session could not be closed. Sign out, verify your email, then sign in again.',
+            );
+            return;
+          }
+        }
+        setNotice(
+          'Account created. Check your email and verify it before signing in.',
+        );
       }
     } catch {
       setError(
@@ -150,6 +164,12 @@ export default function RegisterScreen() {
             for this internal alpha; your phone number is collected but not
             verified because phone OTP is not connected yet.
           </Text>
+
+          {notice !== '' && (
+            <Text accessibilityLiveRegion="polite" style={styles.noticeText}>
+              {notice}
+            </Text>
+          )}
 
           <Text style={styles.label}>First name</Text>
           <TextInput
@@ -358,6 +378,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   errorText: { color: colors.error, fontSize: 14, marginBottom: 12 },
+  noticeText: {
+    color: colors.success,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
   button: {
     minHeight: 52,
     alignItems: 'center',

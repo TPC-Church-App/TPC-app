@@ -2,6 +2,35 @@
 
 Scope: the six requested member UI areas. Run with synthetic data on iPhone/Expo Go and web. These instructions do not claim passed checks. README remains the single progress checklist.
 
+## PR #5 backend integration checks — pending
+
+Use a disposable development project and Paystack test credentials only. Apply
+the migrations and deploy the functions before attempting these checks.
+
+1. Register with a new email, name, age and phone. Confirm that a normal member
+   profile and member row appear even though Auth has no verified phone. Verify
+   the account email before giving or checking in. Auth metadata must not grant
+   staff role or `is_verified` authority.
+2. Confirm that contact verification allows ordinary member features without
+   usher/admin approval. Confirm staff-role checks still enforce their separate
+   protected verification rules.
+3. Select each giving type. Verify the ₦500 quick amount is selectable; entering
+   ₦499.99 shows the minimum error. Confirm direct Edge Function requests below
+   ₦500 fail, and status updates still work for a historical low-value gift.
+4. Complete a Paystack test checkout, return manually to TPC and verify with the
+   server. Browser open/close alone must never create a successful status or a
+   receipt. Retry and cancel paths must display the returned server state.
+5. Sign in with a staff test account and confirm Payment History still queries
+   only that account's own offerings, despite staff database visibility.
+6. Scan an active service QR inside the server's WAT time window. Confirm the
+   server response creates one row; a repeat scan reports already checked in;
+   invalid QR, unverified contact and out-of-window scans create no row.
+7. Record the static-QR sharing risk. Manual PIN, offline queue sync, witness
+   confirmation and GPS are still previews and must not appear as server-confirmed.
+
+These are acceptance criteria, not results. The source migration and functions
+have not been deployed to a hosted project by this change.
+
 | Area                 | Actions and expected result                                                                                                                                                                                                                                                       |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Registration         | Get started → About you. Blank names/age, age 3 and decimals reject. Age 4 and older whole-number ages continue. Names survive contact entry/back navigation. No department or usher approval blocks entry.                                                                       |

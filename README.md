@@ -6,7 +6,7 @@ TPC Church App comprises a member mobile application and a planned web dashboard
 
 **Current stage:** Internal alpha for supervisor and organization review. It is not a public beta or production release.
 
-**Working mobile interface:** Branded onboarding, Home, Profile, Settings, Messages/Notifications, Sermons/player, Community, attendance scanner/history and giving. This branch uses Supabase email/password Auth and Paystack initialization/verification. Phone OTP, hosted payment return, attendance server confirmation, and the remaining local-preview features still need backend or release validation.
+**Working mobile interface:** Branded onboarding, Home, Profile, Settings, Messages/Notifications, Sermons/player, Community, attendance scanner/history and giving. This PR adds source for Supabase email/password Auth, Paystack initialize/verify/return and authenticated QR check-in. Phone OTP remains unconnected. The edited migration/functions need deployment and hosted validation; standalone native builds use the app callback, while Expo Go/web use manual return plus server verification.
 
 **Authentication status:** Supabase email/password sign-in is enabled for this internal alpha. The UI labels this temporary access clearly. Phone OTP is not connected; do not treat this path as the final public sign-in flow.
 
@@ -25,18 +25,18 @@ Design references are incomplete templates. Missing screens and behaviours still
 
 ## Architecture
 
-| Area               | Technology                                         | Current state                                                                                                    |
-| ------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Member application | React Native, Expo SDK 58, Expo Router, TypeScript | Runnable app; email/password Auth and Paystack functions are wired, hosted behaviour still needs validation      |
-| Country selector   | @react-native-picker/picker                        | 28-country selector; wheel interface on iPhone                                                                   |
-| Phone handling     | libphonenumber-js                                  | Country-aware formatting and numbering-pattern validation                                                        |
-| Staff dashboard    | Planned Next.js App Router                         | Comment-only placeholders; package initialization pending                                                        |
-| Database           | Supabase PostgreSQL                                | Initial schema, seed data and hardening migration                                                                |
-| Authentication     | Supabase Auth                                      | Email/password available for internal alpha; phone/email OTP remains pending                                     |
-| Custom backend     | TypeScript / Supabase Edge Functions               | Payment handlers and shared helpers                                                                              |
-| Payments           | Paystack                                           | Initialize/verify functions are wired; hosted return, server-side ₦500 minimum and acceptance checks remain open |
-| Live updates       | Planned Supabase Realtime                          | Application integration pending                                                                                  |
-| Shared packages    | Reserved types, configuration and UI directories   | Not configured as installable packages                                                                           |
+| Area               | Technology                                         | Current state                                                                                               |
+| ------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Member application | React Native, Expo SDK 58, Expo Router, TypeScript | Email/password Auth; current PR edits still need local checks and hosted validation                         |
+| Country selector   | @react-native-picker/picker                        | 28-country selector; wheel interface on iPhone                                                              |
+| Phone handling     | libphonenumber-js                                  | Country-aware formatting and numbering-pattern validation                                                   |
+| Staff dashboard    | Planned Next.js App Router                         | Comment-only placeholders; package initialization pending                                                   |
+| Database           | Supabase PostgreSQL                                | Initial schema, seed data and hardening migration                                                           |
+| Authentication     | Supabase Auth                                      | Email/password for internal alpha; verified contact required for giving and QR check-in; phone OTP pending  |
+| Custom backend     | TypeScript / Supabase Edge Functions               | Payment handlers, shared helpers and QR check-in endpoint; deployment remains unverified                    |
+| Payments           | Paystack                                           | Secure browser handoff and server verification; standalone app callback; hosted behavior remains unverified |
+| Live updates       | Planned Supabase Realtime                          | Application integration pending                                                                             |
+| Shared packages    | Reserved types, configuration and UI directories   | Not configured as installable packages                                                                      |
 
 Backend functions use Deno APIs. The project does not currently contain an Express application server.
 
@@ -119,10 +119,13 @@ TPC-app/
 │   │   ├── _shared/
 │   │   ├── offerings-initialize/
 │   │   ├── offerings-verify/
+│   │   ├── paystack-return/
+│   │   ├── attendance-check-in/
 │   │   └── paystack-webhook/
 │   ├── migrations/
 │   │   ├── 20261021194959_initial_schema.sql
-│   │   └── 20261022090000_harden_access_and_payments.sql
+│   │   ├── 20261022090000_harden_access_and_payments.sql
+│   │   └── 20261103090000_email_profiles_and_giving_minimum.sql
 │   ├── tests/
 │   │   └── access_and_payment_regression.sql
 │   ├── config.toml
@@ -300,9 +303,14 @@ Current monetary limits in code are implementation constraints. They do not esta
 | audit_logs     | Sensitive-operation audit records                        |
 | webhook_events | Recorded payment events and duplicate handling           |
 
-Seed data includes Tithe, Offering, Building and Missions.
+Seed data includes Tithe, Offering, Building, Missions, Evangelist support and
+Church outreach. These rows seed local development only; hosted fund activation
+remains an administrator action.
 
-The hardening migration adds restricted writes and payment integrity controls. Both migrations must be considered together when reviewing current behaviour.
+The hardening migration adds restricted writes and payment integrity controls.
+The new `20261103090000_email_profiles_and_giving_minimum.sql` migration handles
+email-created member profiles and the ₦500 minimum. Review all three migrations
+in order; none has been applied to a hosted project by this source change.
 
 ### Current access controls
 
@@ -313,23 +321,26 @@ The hardening migration adds restricted writes and payment integrity controls. B
 - Sensitive membership changes generate audit records.
 - Direct client financial and attendance writes are blocked.
 
-Current profile provisioning requires a phone number and full name in Auth registration. Missing data requires a later profile-completion workflow.
+The new profile migration allows email/password sign-up when Auth metadata has a
+full name and Auth has no verified phone. It creates a normal member profile;
+submitted, unverified phone metadata is not copied to the canonical phone
+column. Age remains in Auth metadata and needs a separate data contract before
+the backend persists it as member information.
 
 Revoking membership verification does not implement account deactivation.
 
-### Authentication mismatch requiring backend work
+### Authentication boundary
 
-The current backend uses staff-managed `profiles.is_verified` checks and phone-based profile provisioning.
-
-That differs from the confirmed requirement for immediate ordinary-member access after phone or email verification.
-
-Resolve the mismatch through reviewed backend changes and tests before integration. Preserve staff authorization controls. The frontend must not assign roles or set protected verification flags.
+Giving and QR check-in require provider-confirmed email or phone. Ordinary
+member access does not depend on usher or admin approval. `profiles.is_verified`
+remains part of staff-role authorization. The frontend never assigns roles or
+sets protected verification flags.
 
 ## Payment implementation
 
 Existing payment code provides:
 
-- Authenticated payment initialization subject to the current legacy verification gate.
+- Authenticated payment initialization for callers with verified contact details.
 - Input validation for amounts, funds, references and checkout email.
 - Server-assigned ownership, references, currency and pending status.
 - Ownership checks before member payment verification.
@@ -348,13 +359,13 @@ Reconciliation, refunds, recovery and financial retention/anonymization remain u
 
 ### Giving and payment-history frontend
 
-Giving loads active fund records from Supabase and shows selectors for Offering, Tithes, Property giving, Church mission, Evangelist and Church outreach program. It sends only the selected live fund UUID to checkout; it never invents a payment fund. The current database seed has Offering, Tithe, Building and Missions. Evangelist and outreach remain unavailable until active funds are published. Unknown active funds appear under Other active funds. The current schema has no fund-category field, so name matching is a temporary bridge; the backend contract should supply a category for reliable admin-managed campaigns.
+Giving loads active fund records from Supabase and shows selectors for Offering, Tithes, Property giving, Church mission, Evangelist and Church outreach program. It sends only the selected live fund UUID to checkout; it never invents a payment fund. Local seed data includes examples for all six choices. Hosted projects still need the intended active funds published by an administrator. Unknown active funds appear under Other active funds. The current schema has no fund-category field, so name matching remains a temporary bridge; add an explicit category for reliable admin-managed campaigns.
 
-The current Giving screen uses suggested amounts starting at ₦500, accepts custom amounts, initializes a server-owned Paystack transaction and asks the verification function for the authoritative result. Android browser launch alone does not prove payment; members must return and request status verification. Payment History queries the member's offerings. Demo checkout/return routes remain previews and do not receive live Paystack callbacks.
+The Giving screen suggests amounts starting at ₦500 and accepts custom amounts. The UI and Edge Function validate the same minimum. A database trigger also blocks new or repriced offerings below ₦500 while allowing status-only updates to historical gifts. The app initializes a server-owned Paystack transaction, opens its HTTPS checkout in the browser, then asks the verification function for the authoritative result after the member returns. Browser launch or return alone does not prove payment. Payment History explicitly filters to the signed-in member's own offerings.
 
 Payment History is separate from Giving. It filters saved demo checkouts or opt-in sample illustrations by category and status. A demo receipt is available only for a successful saved demo checkout and states that it is not payment proof. The workspace holds up to 50 payment demos and 30 invitations.
 
-The checked-in initialize handler and database constraint still accept ₦100, while the product UI requires ₦500. The backend handler, database constraint and tests must change to ₦500 before relying on the minimum. The configured `APP_URL/payment/callback` destination is not implemented. Attendance scanning is a camera-only preview; this branch contains no attendance function and does not record a scan as attendance. Email/password signup stores member details in Auth metadata, but the checked-in profile trigger provisions profiles only when Supabase Auth has a phone value and a display name. The backend must agree and implement profile provisioning for this alpha sign-up flow. See [API contract](docs/API-CONTRACT.md).
+The current PR includes a forward migration for email-created profiles and the ₦500 minimum, plus an authenticated QR check-in Edge Function. These source changes still need formatting, type, unit, SQL, export and hosted acceptance checks. The payment flow uses an HTTPS provider callback to return a reference to standalone native builds; the app still verifies status server-side. Expo Go/web use manual return. The attendance endpoint confirms a member's check-in only after contact verification, an active matching service QR and the WAT service window. Manual PIN, offline sync, witness and GPS flows remain previews. The migration and functions are not deployed merely because their files exist. See [API contract](docs/API-CONTRACT.md) and [deployment preparation](docs/DEPLOYMENT.md).
 
 ## Local mobile development
 
@@ -444,19 +455,21 @@ Expo generates route types during development startup. Restart it after adding r
 
 ### Available scripts
 
-| Script          | Purpose                                          |
-| --------------- | ------------------------------------------------ |
-| start           | Start Expo development server                    |
-| android         | Start Expo and request an Android preview        |
-| web             | Start Expo and request a browser preview         |
-| typecheck       | Run TypeScript with no compiled output           |
-| test            | Run all pure member-model/navigation tests       |
-| test:attendance | Run the original attendance rule tests           |
-| format          | Format source, services, tests and documentation |
-| format:check    | Verify formatting without changing files         |
+| Script          | Purpose                                              |
+| --------------- | ---------------------------------------------------- |
+| start           | Start Expo development server                        |
+| android         | Start Expo and request an Android preview            |
+| web             | Start Expo and request a browser preview             |
+| typecheck       | Run TypeScript with no compiled output               |
+| test            | Run mobile and shared payment/attendance model tests |
+| test:attendance | Run attendance-window and evidence tests             |
+| format          | Format source, services, tests and documentation     |
+| format:check    | Verify formatting without changing files             |
 
-Formatting and formatting checks are configured through pinned Prettier.
-Linting, automated frontend interaction tests and CI remain unconfigured.
+Formatting checks use pinned Prettier. GitHub Actions now runs mobile formatting,
+TypeScript, model tests and Deno type checks for the Edge Functions on pull
+requests. Automated native/browser interaction tests and SQL database execution
+remain manual checks.
 
 ## Environment and secrets
 
@@ -466,19 +479,18 @@ The payment functions read:
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PAYSTACK_SECRET_KEY`
-- `APP_URL`
 
 Some Supabase values are supplied by the function runtime. Verify target-project configuration before setting them manually.
 
 Service-role credentials and Paystack secret keys belong on the server. Do not place them in mobile/browser bundles or commit real credentials.
 
-The mobile app needs client-safe Supabase URL and anonymous-key configuration for Auth and Edge Function calls. Paystack secret keys and Supabase service-role credentials stay on the server. Hosted payment callbacks and a mobile return-flow contract remain pending.
+The mobile app needs client-safe Supabase URL and anon/publishable-key configuration for Auth and Edge Function calls. Paystack secret keys and Supabase service-role credentials stay on the server. Standalone native builds use the HTTPS callback followed by server verification; Expo Go and web previews use an explicit manual return.
 
 Do not log phone numbers, email addresses, OTP values, access tokens or secret keys while implementing authentication.
 
 ## Verification record
 
-**Current backend PR branch:** the user reported that Prettier, TypeScript, all 41 tests, Expo SDK alignment and Expo Doctor 20/20 passed before the latest payment/auth/scanner corrections. Those checks must be rerun against the current working copy. The user's earlier iPhone/browser acceptance and iOS/web exports apply to a prior UI branch, not this backend PR. The latest reported audit has 12 moderate findings in Expo's dependency tree; `npm audit fix --force` proposes breaking SDK changes and has not been applied. Current iOS and web exports and acceptance checks remain pending. See [API contract](docs/API-CONTRACT.md) for the verified gaps.
+**Current backend PR branch:** local changes after commit `749944b` are not yet formatted, tested, committed or pushed. Before this update, the user reported 41 passing mobile tests, Expo SDK alignment and Expo Doctor 20/20; those results do not cover these latest corrections. New mobile tests cover giving minimum, attendance response/time-window, SecureStore chunking and payment-return validation; Deno tests cover payment input boundaries; SQL regression covers email profile provisioning and the minimum. Re-run Prettier, TypeScript, all mobile tests, the Deno payment test, Expo compatibility/Doctor and iOS/web exports on this exact working copy. Device acceptance and hosted behavior also remain unverified here. The last user-supplied audit output reported 12 moderate findings in Expo's dependency tree; it has not been rerun against the current lockfile. `npm audit fix --force` proposed breaking SDK changes and has not been applied. See [API contract](docs/API-CONTRACT.md) for current endpoint behavior and limits.
 
 ### Historical foundation verification baseline
 
@@ -589,7 +601,8 @@ Checked items indicate source implementation, repository preparation or explicit
 - [ ] Configure phone and email OTP providers, limits and recovery.
 - [ ] Confirm OTP length and expiry against provider configuration.
 - [ ] Connect OTP sending, verification, resend and genuine error states.
-- [ ] Implement secure session persistence, refresh and logout.
+- [ ] Verify native secure session persistence, refresh and logout on physical
+      iOS and Android devices; the browser preview intentionally uses AsyncStorage.
 - [ ] Align profile provisioning and verification gates with immediate ordinary-member access.
 - [ ] Complete profile onboarding when registration data is missing.
 - [ ] Implement account deactivation and enforcement.

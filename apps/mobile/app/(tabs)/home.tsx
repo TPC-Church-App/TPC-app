@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 import MemberMenu from '@/components/member-menu';
+import MemberBackButton from '@/components/member-back-button';
 import { supabase } from '@/lib/supabase';
 
 // ===============================================================
@@ -64,6 +65,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
+          <MemberBackButton fallbackRoute="/" />
           <View style={styles.identity}>
             <Image
               source={require('../../assets/light/church-logo.png')}

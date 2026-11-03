@@ -1,6 +1,6 @@
 // ===============================================================
 // _shared/cors.ts
-// Shares browser response headers for authenticated payment routes.
+// Shares browser response headers for authenticated member endpoints.
 // ===============================================================
 
 // ===============================================================
@@ -11,6 +11,7 @@
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };

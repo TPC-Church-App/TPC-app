@@ -1,7 +1,19 @@
+// ===============================================================
 // apps/mobile/app/(tabs)/giving.tsx
+// Select an active church fund, start secure checkout and verify the
+// final payment state with the server before showing it as successful.
+// ===============================================================
 import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Keyboard, Pressable, Text, TextInput, View, Alert } from 'react-native';
+import * as ExpoLinking from 'expo-linking';
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/theme';
@@ -25,6 +37,9 @@ import {
 
 const QUICK_AMOUNTS = [MIN_GIVING_NAIRA, 1000, 2000, 5000, 10000];
 
+// ===============================================================
+// LIVE FUND AND PAYMENT SELECTION TYPES
+// ===============================================================
 type ActiveFund = {
   id: string;
   name: string;
@@ -64,6 +79,9 @@ export default function GivingScreen() {
   const [paymentNotice, setPaymentNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ===============================================================
+  // LOAD ONLY FUNDS THAT THE CHURCH HAS ACTIVATED
+  // ===============================================================
   const loadFunds = useCallback(async () => {
     setFundsLoading(true);
     try {
@@ -74,22 +92,39 @@ export default function GivingScreen() {
       if (queryError) {
         setFunds([]);
         setFundId(null);
-        setFundsError('Giving options could not load. Check your connection and retry.');
+        setFundsError(
+          'Giving options could not load. Check your connection and retry.',
+        );
         return;
       }
       const activeFunds = (data ?? []).flatMap((fund): ActiveFund[] => {
-        if (typeof fund.id !== 'string' || typeof fund.name !== 'string' || fund.is_active !== true) {
+        if (
+          typeof fund.id !== 'string' ||
+          typeof fund.name !== 'string' ||
+          fund.is_active !== true
+        ) {
           return [];
         }
-        return [{ id: fund.id, name: fund.name, description: typeof fund.description === 'string' ? fund.description : null }];
+        return [
+          {
+            id: fund.id,
+            name: fund.name,
+            description:
+              typeof fund.description === 'string' ? fund.description : null,
+          },
+        ];
       });
       setFunds(activeFunds);
-      setFundId((current) => activeFunds.some((fund) => fund.id === current) ? current : null);
+      setFundId((current) =>
+        activeFunds.some((fund) => fund.id === current) ? current : null,
+      );
       setFundsError('');
     } catch {
       setFunds([]);
       setFundId(null);
-      setFundsError('Giving options could not load. Check your connection and retry.');
+      setFundsError(
+        'Giving options could not load. Check your connection and retry.',
+      );
     } finally {
       setFundsLoading(false);
     }
@@ -111,6 +146,10 @@ export default function GivingScreen() {
       )
     : [];
 
+  // ===============================================================
+  // ASK THE SERVER TO CONFIRM THE PAYMENT OUTCOME
+  // Browser return state never proves that a payment succeeded.
+  // ===============================================================
   async function checkPaymentStatus(reference: string) {
     try {
       const { data, error: verifyError } = await supabase.functions.invoke(
@@ -118,7 +157,9 @@ export default function GivingScreen() {
         { body: { reference } },
       );
       if (verifyError) {
-        setPaymentNotice('The server could not confirm the payment status. Try checking again.');
+        setPaymentNotice(
+          'The server could not confirm the payment status. Try checking again.',
+        );
         return;
       }
       const status = parsePaymentVerification(data);
@@ -128,16 +169,21 @@ export default function GivingScreen() {
       }
       setPaymentNotice(getPaymentStatusMessage(status));
       if (status === 'successful') {
-        Alert.alert("Success", "Your offering was received!");
         router.navigate('/(tabs)/history');
       }
     } catch {
-      setPaymentNotice('We could not check the payment status. Check your connection.');
+      setPaymentNotice(
+        'We could not check the payment status. Check your connection.',
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  // ===============================================================
+  // CREATE A SERVER-OWNED PAYMENT AND OPEN PAYSTACK CHECKOUT
+  // Paystack's callback supplies only a reference; verify it with the server.
+  // ===============================================================
   async function handleGive() {
     Keyboard.dismiss();
     const fund = funds.find((f) => f.id === fundId);
@@ -150,76 +196,125 @@ export default function GivingScreen() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('offerings-initialize', {
-        body: { amount: result.amountMinor / 100, fund_id: fund.id },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        'offerings-initialize',
+        {
+          body: { amount: result.amountMinor / 100, fund_id: fund.id },
+        },
+      );
 
       if (error) throw error;
 
       const checkout = parsePaystackCheckout(data);
       if (!checkout) {
-        setError('The payment service returned an unexpected response. Try again.');
+        setError(
+          'The payment service returned an unexpected response. Try again.',
+        );
         setLoading(false);
         return;
       }
 
       setPendingReference(checkout.reference);
-      setPaymentNotice('Secure checkout opened. Return here to confirm status.');
-      
-      // OPEN BROWSER WITH DEEP LINK (tpc://)
-      const browserResult = await WebBrowser.openAuthSessionAsync(checkout.authorizationUrl, 'tpc://');
-      
-      if (browserResult.type === 'success') {
-        setPaymentNotice('Verifying payment...');
-        // Wait 2.5 seconds for Paystack Webhook to hit the database
-        setTimeout(async () => {
-          await checkPaymentStatus(checkout.reference);
-        }, 2500);
-      } else {
-        setLoading(false); // User cancelled
+      setPaymentNotice(
+        'Complete checkout in your browser, return here, then check the payment status.',
+      );
+      const returnUrl = ExpoLinking.createURL('payment-return');
+      if (Platform.OS === 'web' || !returnUrl.startsWith('tpc://')) {
+        await WebBrowser.openBrowserAsync(checkout.authorizationUrl);
+        setPaymentNotice(
+          'Checkout opened. Return to TPC and check the server status when you are done.',
+        );
+        setLoading(false);
+        return;
       }
+
+      const browserResult = await WebBrowser.openAuthSessionAsync(
+        checkout.authorizationUrl,
+        returnUrl,
+      );
+      if (browserResult.type === 'success' && 'url' in browserResult) {
+        const returnedReference = new URL(browserResult.url).searchParams.get(
+          'reference',
+        );
+        if (returnedReference !== checkout.reference) {
+          setPaymentNotice(
+            'The return reference did not match this checkout. Check the payment status with the server.',
+          );
+          setLoading(false);
+          return;
+        }
+        router.replace({
+          pathname: '/(tabs)/payment-return',
+          params: { reference: returnedReference },
+        });
+        return;
+      }
+
+      setPaymentNotice(
+        'Checkout was closed. Check the server status before starting another gift.',
+      );
+      setLoading(false);
     } catch {
-      setError('We could not start or open secure checkout. Check your connection and try again.');
+      setError(
+        'We could not start or open secure checkout. Check your connection and try again.',
+      );
       setLoading(false);
     }
   }
 
   return (
-    <GivingPage title="Give with purpose" subtitle="Choose where your gift will make a difference.">
+    <GivingPage
+      title="Give with purpose"
+      subtitle="Choose where your gift will make a difference."
+    >
       <View style={[ui.card, ui.hero]}>
         <Text style={ui.heading}>Every gift has a purpose</Text>
-        <Text style={ui.heroBody}>Support worship, church projects and care for our community.</Text>
+        <Text style={ui.heroBody}>
+          Support worship, church projects and care for our community.
+        </Text>
       </View>
 
-      <Text accessibilityRole="header" style={ui.heading}>What would you like to give?</Text>
+      <Text accessibilityRole="header" style={ui.heading}>
+        What would you like to give?
+      </Text>
       <View accessibilityRole="radiogroup" style={ui.wrap}>
         {givingOptions.map((option) => {
           const matchingFunds = funds.filter((fund) =>
-            option.id === 'other' ? !getGivingOptionId(fund.name) : getGivingOptionId(fund.name) === option.id
+            option.id === 'other'
+              ? !getGivingOptionId(fund.name)
+              : getGivingOptionId(fund.name) === option.id,
           );
           const selected = categoryId === option.id;
-          const unavailable = matchingFunds.length === 0 || fundsLoading || !!fundsError;
+          const loadingFunds = fundsLoading;
           return (
             <Pressable
               key={option.id}
               accessibilityRole="button"
-              accessibilityState={{ selected, disabled: unavailable }}
-              disabled={unavailable}
+              accessibilityState={{ selected, disabled: loadingFunds }}
+              disabled={loadingFunds}
               onPress={() => {
                 setCategoryId(option.id);
-                setFundId(matchingFunds.length === 1 ? matchingFunds[0].id : null);
+                setFundId(
+                  matchingFunds.length === 1 ? matchingFunds[0].id : null,
+                );
                 setError('');
               }}
               style={({ pressed }) => [
                 ui.choice,
                 selected && ui.selected,
-                unavailable && ui.disabled,
+                loadingFunds && ui.disabled,
                 pressed && ui.pressed,
               ]}
             >
               <Text style={ui.link}>{option.label}</Text>
               <Text style={ui.caption}>
-                {unavailable ? 'Not available yet' : `${matchingFunds.length} active fund${matchingFunds.length === 1 ? '' : 's'}`}
+                {fundsLoading
+                  ? 'Loading funds…'
+                  : fundsError
+                    ? 'Availability could not load'
+                    : matchingFunds.length === 0
+                      ? 'No active fund yet'
+                      : `${matchingFunds.length} active fund${matchingFunds.length === 1 ? '' : 's'}`}
               </Text>
             </Pressable>
           );
@@ -227,15 +322,36 @@ export default function GivingScreen() {
       </View>
 
       {fundsLoading && <Text style={ui.body}>Loading giving options…</Text>}
-      {!fundsLoading && funds.length === 0 && fundsError === '' && (
-        <Text style={ui.body}>Giving types will become available when the church publishes active funds.</Text>
-      )}
+      {categoryId &&
+        !fundsLoading &&
+        !fundsError &&
+        categoryFunds.length === 0 && (
+          <View style={ui.card}>
+            <Text style={ui.body}>
+              No active fund is published for this giving type yet. The church
+              can make it available when its fund details are ready.
+            </Text>
+          </View>
+        )}
+      {!categoryId &&
+        !fundsLoading &&
+        funds.length === 0 &&
+        fundsError === '' && (
+          <Text style={ui.body}>
+            Giving types will become available when the church publishes active
+            funds.
+          </Text>
+        )}
 
       {categoryId && !fundsLoading && categoryFunds.length > 0 && (
         <View style={ui.stack}>
           {categoryFunds.length > 1 && (
             <Text accessibilityRole="header" style={ui.heading}>
-              Choose a {givingOptions.find((item) => item.id === categoryId)?.label.toLowerCase()} fund
+              Choose a{' '}
+              {givingOptions
+                .find((item) => item.id === categoryId)
+                ?.label.toLowerCase()}{' '}
+              fund
             </Text>
           )}
           {categoryFunds.map((fund) => {
@@ -249,13 +365,19 @@ export default function GivingScreen() {
                   setFundId(fund.id);
                   setError('');
                 }}
-                style={({ pressed }) => [ui.card, selected && ui.selected, pressed && ui.pressed]}
+                style={({ pressed }) => [
+                  ui.card,
+                  selected && ui.selected,
+                  pressed && ui.pressed,
+                ]}
               >
                 <View style={ui.row}>
                   <Text style={ui.heading}>{fund.name}</Text>
                   {selected && <Text style={ui.link}>Selected</Text>}
                 </View>
-                {!!fund.description && <Text style={ui.body}>{fund.description}</Text>}
+                {!!fund.description && (
+                  <Text style={ui.body}>{fund.description}</Text>
+                )}
               </Pressable>
             );
           })}
@@ -264,14 +386,22 @@ export default function GivingScreen() {
 
       {fundsError !== '' && (
         <View style={ui.card}>
-          <Text accessibilityRole="alert" style={ui.error}>{fundsError}</Text>
-          <GivingButton label="Retry loading giving options" secondary onPress={() => void loadFunds()} />
+          <Text accessibilityRole="alert" style={ui.error}>
+            {fundsError}
+          </Text>
+          <GivingButton
+            label="Retry loading giving options"
+            secondary
+            onPress={() => void loadFunds()}
+          />
         </View>
       )}
 
       <View style={ui.card}>
         <Text style={ui.label}>Amount (NGN)</Text>
-        <Text style={ui.caption}>Choose a suggested amount or enter another amount. Minimum is ₦500.</Text>
+        <Text style={ui.caption}>
+          Choose a suggested amount or enter another amount.
+        </Text>
         <View accessibilityRole="radiogroup" style={ui.wrap}>
           {QUICK_AMOUNTS.map((quickAmount) => (
             <GivingChoice
@@ -299,9 +429,15 @@ export default function GivingScreen() {
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
         />
-        <Text style={ui.caption}>The maximum gift is ₦{(1_000_000).toLocaleString('en-NG')}.</Text>
+        <Text style={ui.caption}>
+          The maximum gift is ₦{(1_000_000).toLocaleString('en-NG')}.
+        </Text>
 
-        {error !== '' && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}
+        {error !== '' && (
+          <Text accessibilityRole="alert" style={ui.error}>
+            {error}
+          </Text>
+        )}
 
         <GivingButton
           label={loading ? 'Processing...' : 'Proceed to Pay'}
@@ -313,10 +449,16 @@ export default function GivingScreen() {
       {pendingReference && (
         <View style={ui.card}>
           <Text style={ui.heading}>Payment status</Text>
-          <Text accessibilityLiveRegion="polite" style={ui.body}>{paymentNotice}</Text>
+          <Text accessibilityLiveRegion="polite" style={ui.body}>
+            {paymentNotice}
+          </Text>
           <Text style={ui.caption}>Reference: {pendingReference}</Text>
           <GivingButton
-            label={loading ? 'Checking with the server…' : 'Check payment status manually'}
+            label={
+              loading
+                ? 'Checking with the server…'
+                : 'Check payment status manually'
+            }
             onPress={() => {
               setLoading(true);
               void checkPaymentStatus(pendingReference);

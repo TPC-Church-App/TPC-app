@@ -1,6 +1,6 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/attendance.tsx
-// Show demo service, history, witness and offline states.
+// Combine server QR check-in with clearly labeled attendance previews.
 // ===============================================================
 
 import { useEffect, useState } from 'react';
@@ -125,7 +125,7 @@ export default function AttendanceScreen() {
   return (
     <GivingPage
       title="Attendance & check-in"
-      subtitle="Be part of the gathering. Scanner, offline queue and witness flows are previews; no attendance is sent to the server yet."
+      subtitle="Scan a service QR for server-confirmed attendance. Manual codes, offline queue and witness flows remain previews."
       sectionLabel="ATTENDANCE"
     >
       {!ready && !error && (
@@ -154,17 +154,13 @@ export default function AttendanceScreen() {
         </Text>
         <Text style={ui.heroBody}>
           {getCheckInState(service, now) === 'open'
-            ? 'Check-in open'
-            : 'Check-in closed'}
+            ? 'Sample check-in window: open'
+            : 'Sample check-in window: closed'}
         </Text>
       </View>
       <GivingButton
-        label={attempt ? 'View current check-in' : 'Preview QR scanner'}
-        disabled={
-          !ready ||
-          busy ||
-          (!attempt && getCheckInState(service, now) !== 'open')
-        }
+        label={attempt ? 'View current check-in' : 'Scan service QR'}
+        disabled={!ready || busy}
         onPress={() =>
           attempt ? setSelected(attempt.id) : router.navigate('/(tabs)/scanner')
         }

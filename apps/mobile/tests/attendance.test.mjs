@@ -6,6 +6,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  getCheckInWindow as getServerCheckInWindow,
+  isCheckInOpen,
+} from '../../../supabase/functions/_shared/attendance-window.ts';
+import {
+  getAttendanceCheckInErrorMessage,
+  parseAttendanceCheckInResult,
+} from '../utils/attendance-check-in.ts';
+import {
   DEMO_SERVICE_PASS,
   getAttendanceWindow,
   getCheckInState,
@@ -66,6 +74,108 @@ test('rejects malformed and reversed schedules', () => {
   );
   assert.equal(getCheckInState(service, NaN), 'unavailable');
   assert.equal(isWithinUploadDeadline(service, NaN), false);
+});
+
+// ===============================================================
+// SERVER CHECK-IN WINDOW REGRESSIONS
+// ===============================================================
+
+const serverSchedule = {
+  service_date: '2026-11-01',
+  start_time: '09:00:00',
+  end_time: '11:00:00',
+};
+
+test('server check-in opens 30 minutes before and closes 30 minutes after service', () => {
+  const window = getServerCheckInWindow(serverSchedule);
+  assert.ok(window);
+  assert.equal(window.opensAt, Date.parse('2026-11-01T08:30:00+01:00'));
+  assert.equal(window.closesAt, Date.parse('2026-11-01T11:30:00+01:00'));
+  assert.equal(
+    isCheckInOpen(serverSchedule, Date.parse('2026-11-01T08:29:59.999+01:00')),
+    false,
+  );
+  assert.equal(
+    isCheckInOpen(serverSchedule, Date.parse('2026-11-01T08:30:00+01:00')),
+    true,
+  );
+  assert.equal(
+    isCheckInOpen(serverSchedule, Date.parse('2026-11-01T11:30:00+01:00')),
+    true,
+  );
+  assert.equal(
+    isCheckInOpen(serverSchedule, Date.parse('2026-11-01T11:30:00.001+01:00')),
+    false,
+  );
+});
+
+test('server check-in rejects invalid dates and reversed service times', () => {
+  assert.equal(
+    getServerCheckInWindow({ ...serverSchedule, service_date: '2026-02-30' }),
+    null,
+  );
+  assert.equal(
+    getServerCheckInWindow({ ...serverSchedule, end_time: '08:59:00' }),
+    null,
+  );
+  assert.equal(isCheckInOpen(serverSchedule, Number.NaN), false);
+});
+
+test('server check-in accepts Postgres fractional seconds', () => {
+  const fractional = {
+    ...serverSchedule,
+    start_time: '09:00:00.123456',
+    end_time: '11:00:00.123456',
+  };
+  const window = getServerCheckInWindow(fractional);
+  assert.ok(window);
+  assert.equal(window.opensAt, Date.parse('2026-11-01T08:30:00.123+01:00'));
+});
+
+test('attendance UI accepts only confirmed server response shapes', () => {
+  assert.deepEqual(
+    parseAttendanceCheckInResult({
+      status: 'confirmed',
+      service_title: 'Sunday worship',
+      checked_in_at: '2026-11-01T08:30:00Z',
+    }),
+    {
+      status: 'confirmed',
+      serviceTitle: 'Sunday worship',
+      checkedInAt: '2026-11-01T08:30:00Z',
+    },
+  );
+  assert.equal(
+    parseAttendanceCheckInResult({
+      status: 'pending',
+      service_title: 'Sunday worship',
+    }),
+    null,
+  );
+  assert.equal(
+    parseAttendanceCheckInResult({
+      status: 'confirmed',
+      checked_in_at: 'invalid',
+    })?.checkedInAt,
+    null,
+  );
+});
+
+test('attendance UI maps known endpoint errors and hides arbitrary server text', () => {
+  assert.equal(
+    getAttendanceCheckInErrorMessage({ error: { code: 'CHECK_IN_CLOSED' } }),
+    'Check-in is not open for this service right now.',
+  );
+  assert.equal(
+    getAttendanceCheckInErrorMessage({ error: { code: 'PROFILE_INCOMPLETE' } }),
+    'Complete your member profile before checking in.',
+  );
+  assert.match(
+    getAttendanceCheckInErrorMessage({
+      error: { code: 'UNKNOWN', message: 'database secret or stack trace' },
+    }),
+    /could not be confirmed/i,
+  );
 });
 
 // ===============================================================

@@ -60,6 +60,13 @@ VALUES
     ('00000000-0000-4000-a000-000000000103', '+2340000000103',
      '{"full_name":"TPC regression admin"}');
 
+-- Email sign-up has no verified Auth phone. Profile provisioning must still
+-- create a normal member row without trusting the submitted phone metadata.
+INSERT INTO auth.users (id, email, phone, raw_user_meta_data)
+VALUES ('00000000-0000-4000-a000-000000000104',
+        'tpc-regression-email@example.test', NULL,
+        '{"full_name":"TPC email regression member","phone":"+2340000000104","role":"super_admin"}');
+
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -68,6 +75,24 @@ BEGIN
           AND role = 'member' AND is_verified IS FALSE
     ) THEN
         RAISE EXCEPTION 'Auth metadata changed protected profile authority';
+    END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = '00000000-0000-4000-a000-000000000104'
+          AND full_name = 'TPC email regression member'
+          AND phone IS NULL
+          AND role = 'member'
+          AND is_verified IS FALSE
+    ) OR NOT EXISTS (
+        SELECT 1 FROM public.members
+        WHERE user_id = '00000000-0000-4000-a000-000000000104'
+    ) THEN
+        RAISE EXCEPTION 'Email Auth user did not receive a safe member profile';
     END IF;
 END;
 $$;
@@ -88,10 +113,10 @@ VALUES ('00000000-0000-4000-a000-000000000201', 'TPC regression fund');
 INSERT INTO public.offerings (id, user_id, amount, fund_id, reference)
 VALUES
     ('00000000-0000-4000-a000-000000000301',
-     '00000000-0000-4000-a000-000000000101', 100,
+     '00000000-0000-4000-a000-000000000101', 500,
      '00000000-0000-4000-a000-000000000201', 'tpc-regression-payment-1'),
     ('00000000-0000-4000-a000-000000000302',
-     '00000000-0000-4000-a000-000000000101', 100,
+     '00000000-0000-4000-a000-000000000101', 500,
      '00000000-0000-4000-a000-000000000201', 'tpc-regression-payment-2');
 
 -- ===============================================================
@@ -215,7 +240,15 @@ DECLARE
     result jsonb;
 BEGIN
     BEGIN
-        PERFORM public.settle_paystack_payment('tpc-regression-payment-1', 9999,
+        INSERT INTO public.offerings (user_id, amount, fund_id, reference)
+        VALUES ('00000000-0000-4000-a000-000000000101', 499,
+                '00000000-0000-4000-a000-000000000201', 'tpc-below-minimum');
+        RAISE EXCEPTION 'An offering below NGN 500 was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    BEGIN
+        PERFORM public.settle_paystack_payment('tpc-regression-payment-1', 49999,
             'NGN', 'tpc-regression-provider-1', 'card', pg_catalog.now());
         RAISE EXCEPTION 'An amount mismatch was accepted';
     EXCEPTION WHEN invalid_parameter_value THEN NULL;
@@ -229,14 +262,14 @@ BEGIN
         RAISE EXCEPTION 'Rejected payment data changed financial state';
     END IF;
 
-    result := public.settle_paystack_payment('tpc-regression-payment-1', 10000,
+    result := public.settle_paystack_payment('tpc-regression-payment-1', 50000,
         'NGN', 'tpc-regression-provider-1', 'card', pg_catalog.now());
 
     IF (result ->> 'already_settled')::boolean IS NOT FALSE THEN
         RAISE EXCEPTION 'First settlement was incorrectly reported as a replay';
     END IF;
 
-    result := public.settle_paystack_payment('tpc-regression-payment-1', 10000,
+    result := public.settle_paystack_payment('tpc-regression-payment-1', 50000,
         'NGN', 'tpc-regression-provider-1', 'card', pg_catalog.now(),
         'charge.success:tpc-regression-provider-1');
 
@@ -244,7 +277,7 @@ BEGIN
         RAISE EXCEPTION 'A verified payment was not treated as an idempotent replay';
     END IF;
 
-    PERFORM public.settle_paystack_payment('tpc-regression-payment-1', 10000,
+    PERFORM public.settle_paystack_payment('tpc-regression-payment-1', 50000,
         'NGN', 'tpc-regression-provider-1', 'card', pg_catalog.now(),
         'charge.success:tpc-regression-provider-1');
 
@@ -259,7 +292,7 @@ BEGIN
     END IF;
 
     BEGIN
-        PERFORM public.settle_paystack_payment('tpc-regression-payment-2', 10000,
+        PERFORM public.settle_paystack_payment('tpc-regression-payment-2', 50000,
             'NGN', 'tpc-regression-provider-1', 'card', pg_catalog.now());
         RAISE EXCEPTION 'A provider transaction settled two different offerings';
     EXCEPTION WHEN unique_violation THEN NULL;
@@ -275,7 +308,7 @@ BEGIN
     WHERE id = '00000000-0000-4000-a000-000000000301';
 
     BEGIN
-        PERFORM public.settle_paystack_payment('tpc-regression-payment-1', 10000,
+        PERFORM public.settle_paystack_payment('tpc-regression-payment-1', 50000,
             'NGN', 'tpc-regression-provider-1', 'card', pg_catalog.now());
         RAISE EXCEPTION 'Settlement reversed a refunded offering';
     EXCEPTION WHEN invalid_parameter_value THEN NULL;

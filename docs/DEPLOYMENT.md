@@ -6,10 +6,11 @@
 ## Current runnable application
 
 The Expo mobile application uses Supabase email/password Auth and invokes the
-Paystack offering initialization and verification functions. Phone OTP remains
-unimplemented. The Paystack callback destination is not connected. Attendance
-scanning is a camera-only preview in this branch; no attendance function is
-included or called.
+Paystack offering initialization, verification and QR attendance functions.
+Phone OTP remains unimplemented. A standalone app build returns through the
+HTTPS `paystack-return` function and verifies status with the server. Expo Go
+and web preview use manual return and server status check. The latest local
+function and migration edits still need checks and deployment.
 The staff Next.js application contains placeholders and cannot yet be built or
 deployed. Checked-in source does not prove hosted deployment or behaviour.
 
@@ -45,12 +46,16 @@ Before running any remote migration or deployment:
    inspect its actual migration and function state.
 2. Validate migrations and regression checks in an isolated database, including
    data compatibility, backup and restore procedures.
-3. Resolve the phone/email onboarding and immediate-member-access mismatch
-   documented in DATABASE.md and API-CONTRACT.md.
-4. Configure and test Auth providers, limits, recovery and callback URLs.
-5. Configure Paystack test-mode integration and a real application return flow.
-   The code expects `APP_URL/payment/callback`; that route is not implemented.
-6. Verify authorization, concurrency, webhook retries, reconciliation and failure
+3. Apply and review the email-profile and ₦500-minimum migration in an isolated
+   database, then run the SQL regression file.
+4. Confirm Supabase email confirmation and recovery settings. Phone OTP is not
+   part of this alpha. Contact verification does not use staff approval.
+5. Configure Paystack test-mode credentials and confirm the app callback plus
+   server-verification flow in a standalone build. Test the manual return in
+   Expo Go/web. Do not use live credentials for alpha testing.
+6. Verify QR check-in authorization, service window, duplicate scans and static
+   QR sharing risk. Rotating codes remain a public-release hardening item.
+7. Verify authorization, concurrency, webhook retries, reconciliation and failure
    recovery before moving to live credentials or real member data.
 
 The root package includes the Supabase CLI dependency. Use that project-local
@@ -60,26 +65,32 @@ and target project have been verified.
 
 ## Migration/function dependency
 
-Apply the initial schema and then the hardening migration in order. Updated
-payment functions depend on the hardening migration's constraints and settlement
-function. Do not deploy those handlers against the initial schema alone.
+Apply the initial schema, hardening migration and then
+`20261103090000_email_profiles_and_giving_minimum.sql` in order. The latest
+payment functions depend on the hardening settlement function and new minimum
+trigger. Do not deploy the edited functions before applying the required schema.
 
 Deployable function directories currently contain code for:
 
 - `offerings-initialize`
 - `offerings-verify`
 - `paystack-webhook`
+- `paystack-return`
+- `attendance-check-in`
 
-Existence in the repository does not prove deployment. The webhook's config has
-`verify_jwt = false` because its handler checks the Paystack HMAC signature.
-Do not disable gateway JWT checks on member endpoints as a general workaround.
+Existence in the repository does not prove deployment. The webhook disables JWT
+verification because it checks Paystack's HMAC signature. The return function
+also disables JWT because Paystack cannot send a member token; it only redirects
+to a fixed app scheme and cannot change payment state. Do not disable JWT checks
+on member endpoints as a general workaround.
 
 ## Environment boundaries
 
 The payment handlers read `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, `PAYSTACK_SECRET_KEY` and, for initialization,
-`APP_URL`. Some Supabase values are supplied by the runtime; verify the target
-project's supported configuration before setting them manually.
+`SUPABASE_SERVICE_ROLE_KEY` and `PAYSTACK_SECRET_KEY`. The attendance handler
+uses the Supabase URL, anon key and service-role key. Some Supabase values are
+supplied by the runtime; verify the target project's supported configuration
+before setting them manually.
 
 Service-role and Paystack secret keys are server-only. Never place them in the
 mobile bundle, browser code, source control, screenshots or shared logs. The

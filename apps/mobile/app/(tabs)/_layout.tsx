@@ -6,6 +6,12 @@ import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 import { colors } from '@/constants/theme';
 
+// Hide auxiliary tab items from layout while keeping their routes navigable.
+const hiddenRouteOptions = {
+  tabBarButton: () => null,
+  tabBarItemStyle: { display: 'none' as const },
+};
+
 // ===============================================================
 // MEMBER TAB NAVIGATION
 // ===============================================================
@@ -21,6 +27,7 @@ export default function MemberTabsLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.decorativeBorder,
         },
+        tabBarLabelStyle: { fontSize: 13, fontWeight: '600' },
       }}
     >
       {/* ===============================================================
@@ -49,21 +56,18 @@ export default function MemberTabsLayout() {
           HIDDEN FEATURE ROUTES
           These screens open from member navigation instead of the tab bar.
           =============================================================== */}
-      <Tabs.Screen name="attendance" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="checkout" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="community" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="giving" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="history" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="messages" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="more" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen
-        name="payment-return"
-        options={{ tabBarButton: () => null }}
-      />
-      <Tabs.Screen name="receipt" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="scanner" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="sermons" options={{ tabBarButton: () => null }} />
-      <Tabs.Screen name="settings" options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="attendance" options={hiddenRouteOptions} />
+      <Tabs.Screen name="checkout" options={hiddenRouteOptions} />
+      <Tabs.Screen name="community" options={hiddenRouteOptions} />
+      <Tabs.Screen name="giving" options={hiddenRouteOptions} />
+      <Tabs.Screen name="history" options={hiddenRouteOptions} />
+      <Tabs.Screen name="messages" options={hiddenRouteOptions} />
+      <Tabs.Screen name="more" options={hiddenRouteOptions} />
+      <Tabs.Screen name="payment-return" options={hiddenRouteOptions} />
+      <Tabs.Screen name="receipt" options={hiddenRouteOptions} />
+      <Tabs.Screen name="scanner" options={hiddenRouteOptions} />
+      <Tabs.Screen name="sermons" options={hiddenRouteOptions} />
+      <Tabs.Screen name="settings" options={hiddenRouteOptions} />
     </Tabs>
   );
 }

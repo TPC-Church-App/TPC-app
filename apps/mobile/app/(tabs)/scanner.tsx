@@ -1,13 +1,25 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/scanner.tsx
-// Preview QR scanning without recording attendance in the internal alpha.
+// Scan a service QR and request server-confirmed attendance.
 // ===============================================================
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import {
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+} from 'expo-camera';
 import { router } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BrandedLoader from '@/components/branded-loader';
+import MemberBackButton from '@/components/member-back-button';
+import { supabase } from '@/lib/supabase';
+import {
+  getAttendanceCheckInErrorMessage,
+  parseAttendanceCheckInResult,
+  type AttendanceCheckInResult,
+} from '@/utils/attendance-check-in';
 
 // ===============================================================
 // CAMERA PERMISSION AND SCANNER STATE
@@ -16,6 +28,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<AttendanceCheckInResult | null>(null);
+  const [error, setError] = useState('');
+  const scanLocked = useRef(false);
 
   // ===============================================================
   // CAMERA ACCESS
@@ -24,6 +40,9 @@ export default function ScannerScreen() {
   if (!permission) {
     return (
       <SafeAreaView style={styles.container}>
+        <View style={styles.permissionHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
+        </View>
         <Text style={styles.message}>Checking camera permission…</Text>
       </SafeAreaView>
     );
@@ -32,6 +51,9 @@ export default function ScannerScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
+        <View style={styles.permissionHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
+        </View>
         <Text style={styles.message}>
           We need your permission to show the camera
         </Text>
@@ -47,14 +69,62 @@ export default function ScannerScreen() {
   }
 
   // ===============================================================
-  // REPORT THAT THE CAMERA READ A QR CODE
-  // A scan alone is not proof of attendance; no endpoint is connected here.
+  // VERIFY THE QR WITH THE AUTHENTICATED ATTENDANCE ENDPOINT
+  // A camera scan alone never records attendance.
   // ===============================================================
 
-  function handleBarCodeScanned() {
-    if (scanned) return;
+  async function handleBarCodeScanned(scan: BarcodeScanningResult) {
+    if (scanLocked.current || !scan.data.trim() || scan.data.length > 256)
+      return;
 
+    scanLocked.current = true;
     setScanned(true);
+    setLoading(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const { data, error: requestError } = await supabase.functions.invoke(
+        'attendance-check-in',
+        { body: { qr_code: scan.data.trim() } },
+      );
+
+      if (requestError) {
+        let responseBody: unknown;
+        if (requestError.context instanceof Response) {
+          try {
+            responseBody = await requestError.context.clone().json();
+          } catch {
+            responseBody = null;
+          }
+        }
+        setError(getAttendanceCheckInErrorMessage(responseBody));
+        return;
+      }
+
+      const parsed = parseAttendanceCheckInResult(data);
+      if (!parsed) {
+        setError(
+          'The check-in service returned an unexpected response. Try again.',
+        );
+        return;
+      }
+
+      setResult(parsed);
+    } catch {
+      setError(
+        'Your check-in could not be confirmed. Check your connection and try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function resetScanner() {
+    scanLocked.current = false;
+    setScanned(false);
+    setResult(null);
+    setError('');
   }
 
   // ===============================================================
@@ -66,11 +136,23 @@ export default function ScannerScreen() {
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={
+          scanned ? undefined : (scan) => void handleBarCodeScanned(scan)
+        }
         barcodeScannerSettings={{
           barcodeTypes: ['qr'],
         }}
       />
+
+      <SafeAreaView
+        pointerEvents="box-none"
+        style={StyleSheet.absoluteFill}
+        edges={['top', 'left', 'right']}
+      >
+        <View pointerEvents="box-none" style={styles.scannerHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
+        </View>
+      </SafeAreaView>
 
       {/* Dark overlay with a clear box in the middle */}
       <View style={styles.overlay}>
@@ -83,26 +165,44 @@ export default function ScannerScreen() {
         </View>
         <View style={styles.unfocusedContainer}>
           <Text style={styles.instructions}>
-            {scanned ? 'QR code detected' : 'Align QR code within the frame'}
+            {scanned
+              ? 'Checking service QR…'
+              : 'Align QR code within the frame'}
           </Text>
         </View>
       </View>
-      {scanned && (
+      {result && (
+        <BrandedLoader
+          visible
+          success
+          label={
+            result.status === 'confirmed'
+              ? 'Attendance confirmed by the server.'
+              : 'You are already checked in for this service.'
+          }
+          onClose={resetScanner}
+          closeLabel="Continue scanning"
+        >
+          {!!result.serviceTitle && (
+            <Text style={styles.resultMessage}>{result.serviceTitle}</Text>
+          )}
+        </BrandedLoader>
+      )}
+      {!!error && (
         <View style={styles.resultBackdrop}>
           <View style={styles.resultCard}>
             <Text accessibilityRole="header" style={styles.resultTitle}>
-              QR code detected
+              Check-in not confirmed
             </Text>
-            <Text style={styles.resultMessage}>
-              This internal alpha does not have the attendance check-in service
-              connected. No attendance was recorded.
+            <Text accessibilityLiveRegion="polite" style={styles.resultMessage}>
+              {error}
             </Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setScanned(false)}
+              onPress={resetScanner}
               style={styles.resultButton}
             >
-              <Text style={styles.resultButtonText}>Scan another</Text>
+              <Text style={styles.resultButtonText}>Try again</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -114,6 +214,7 @@ export default function ScannerScreen() {
           </View>
         </View>
       )}
+      <BrandedLoader visible={loading} label="Confirming your attendance…" />
     </View>
   );
 }
@@ -132,6 +233,15 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     color: '#fff',
     marginTop: 50,
+  },
+  permissionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  scannerHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    alignItems: 'flex-start',
   },
   permissionButton: {
     minHeight: 48,

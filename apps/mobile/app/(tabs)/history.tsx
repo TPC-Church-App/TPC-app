@@ -17,8 +17,23 @@ import { formatGivingAmount, formatGivingDate } from '@/utils/giving';
 // GIVING HISTORY STATE AND QUERY
 // ===============================================================
 
+type OfferingHistoryItem = {
+  id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  reference: string;
+  funds: { name: string } | { name: string }[] | null;
+};
+
+function getFundName(funds: OfferingHistoryItem['funds']): string | null {
+  return Array.isArray(funds)
+    ? (funds[0]?.name ?? null)
+    : (funds?.name ?? null);
+}
+
 export default function HistoryScreen() {
-  const [offerings, setOfferings] = useState<any[]>([]);
+  const [offerings, setOfferings] = useState<OfferingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -29,9 +44,20 @@ export default function HistoryScreen() {
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !user) {
+        setOfferings([]);
+        setError('Sign in to view your payment history.');
+        return;
+      }
+
       const { data, error: queryError } = await supabase
         .from('offerings')
-        .select('*, funds(name)')
+        .select('id, amount, status, created_at, reference, funds(name)')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (queryError) {
@@ -39,7 +65,7 @@ export default function HistoryScreen() {
           'Payment history could not load. Check your connection and retry.',
         );
       } else {
-        setOfferings(data ?? []);
+        setOfferings((data ?? []) as OfferingHistoryItem[]);
         setError('');
       }
     } catch {
@@ -97,7 +123,7 @@ export default function HistoryScreen() {
 
       {offerings.map((p) => (
         <View key={p.id} style={ui.card}>
-          <Text style={ui.heading}>{p.funds?.name || 'Offering'}</Text>
+          <Text style={ui.heading}>{getFundName(p.funds) || 'Offering'}</Text>
           <Text style={ui.amount}>{formatGivingAmount(p.amount * 100)}</Text>
           <Text style={ui.label}>{p.status.toUpperCase()}</Text>
           <Text style={ui.caption}>{formatGivingDate(p.created_at)}</Text>

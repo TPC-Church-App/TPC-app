@@ -337,3 +337,35 @@ test('additional routes stay navigable rather than using href-null hiding', asyn
   ])
     await access(new URL('../app/(tabs)/' + name + '.tsx', import.meta.url));
 });
+
+// ===============================================================
+// MEMBER TAB BAR LAYOUT REGRESSION
+// Auxiliary routes must stay reachable without squeezing visible tabs.
+// ===============================================================
+
+test('auxiliary routes are hidden without consuming visible tab slots', async () => {
+  const layout = await readFile(
+    new URL('../app/(tabs)/_layout.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(layout, /tabBarItemStyle:\s*\{\s*display:\s*'none'/);
+  for (const name of [
+    'attendance',
+    'checkout',
+    'community',
+    'giving',
+    'history',
+    'messages',
+    'more',
+    'payment-return',
+    'receipt',
+    'scanner',
+    'sermons',
+    'settings',
+  ]) {
+    assert.match(
+      layout,
+      new RegExp(`name="${name}" options=\\{hiddenRouteOptions\\}`),
+    );
+  }
+});
