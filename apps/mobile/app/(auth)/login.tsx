@@ -1,5 +1,6 @@
 // ===============================================================
 // apps/mobile/app/(auth)/login.tsx
+// Validate phone contact input and sign in with temporary email/password auth.
 // ===============================================================
 
 import { Picker } from '@react-native-picker/picker';
@@ -7,7 +8,6 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import type { CountryCode } from 'libphonenumber-js';
 import {
-  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -27,21 +27,45 @@ import {
   getPhoneCountryLabel,
 } from '@/constants/countries';
 import { colors } from '@/constants/theme';
-import { formatPhoneInput, validatePhoneInput } from '@/utils/phone';
+import { formatPhoneInput } from '@/utils/phone';
 import { useDemoTransition } from '@/utils/use-demo-transition';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
+
+// ===============================================================
+// SIGN-IN FEEDBACK AND KEYBOARD SUPPORT
+// ===============================================================
 
 type ContactFeedback = {
   message: string;
   valid: boolean;
 };
 
-const CONTACT_KEYBOARD_TOOLBAR_ID = 'contact-keyboard-toolbar';
+// ===============================================================
+// MAP AUTH FAILURES TO SAFE, MEMBER-FACING MESSAGES
+// Avoid showing account identifiers or raw server responses.
+// ===============================================================
+
+function getSignInErrorMessage(code?: string) {
+  if (code === 'invalid_credentials') {
+    return 'Email or password is incorrect.';
+  }
+  if (code === 'email_not_confirmed') {
+    return 'Verify your email using the confirmation message, then sign in.';
+  }
+  if (code === 'over_request_rate_limit' || code === 'too_many_requests') {
+    return 'Too many attempts. Wait a little and try again.';
+  }
+  return 'We could not sign you in. Check your connection and try again.';
+}
+
+// ===============================================================
+// SIGN-IN STATE AND ACTIONS
+// ===============================================================
 
 export default function LoginScreen() {
-  const [method, setMethod] = useState<'phone' | 'email'>('phone');
+  const [method, setMethod] = useState<'phone' | 'email'>('email');
   const [contact, setContact] = useState('');
-  const [password, setPassword] = useState(''); // NEW: Password field for testing
+  const [password, setPassword] = useState('');
   const [country, setCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [feedback, setFeedback] = useState<ContactFeedback | null>(null);
@@ -52,6 +76,10 @@ export default function LoginScreen() {
     (item) => item.code === country,
   )!;
 
+  // ===============================================================
+  // CONTACT METHOD AND COUNTRY INPUT
+  // ===============================================================
+
   function updateContact(value: string) {
     setFeedback(null);
     if (!isPhone) {
@@ -59,7 +87,8 @@ export default function LoginScreen() {
       return;
     }
     const formatted = formatPhoneInput(value, country);
-    const deletingSeparator = value.length < contact.length && formatted === contact;
+    const deletingSeparator =
+      value.length < contact.length && formatted === contact;
     setContact(deletingSeparator ? value : formatted);
   }
 
@@ -79,16 +108,21 @@ export default function LoginScreen() {
     setFeedback(null);
   }
 
+  // ===============================================================
+  // CONTACT VALIDATION AND AUTH REQUEST
+  // Phone OTP is not connected here; email/password uses Supabase Auth.
+  // ===============================================================
+
   async function validateContact() {
     if (busy) return;
     Keyboard.dismiss();
     setCountryPickerOpen(false);
 
     if (isPhone) {
-      // Phone auth bypass for now
-      setFeedback({ 
-        valid: false, 
-        message: 'Please switch to "Use email instead" to test the backend.' 
+      // Phone authentication is unavailable in this backend branch.
+      setFeedback({
+        valid: false,
+        message: 'Please switch to "Use email instead" to test the backend.',
       });
       return;
     } else {
@@ -98,7 +132,7 @@ export default function LoginScreen() {
         setFeedback({ valid: false, message: 'Enter your email address.' });
         return;
       }
-      
+
       if (!password) {
         setFeedback({ valid: false, message: 'Enter your password.' });
         return;
@@ -108,25 +142,31 @@ export default function LoginScreen() {
       setFeedback(null);
 
       try {
-        console.log("Attempting login for:", trimmed);
-        
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email: trimmed,
-          password: password,
+          password,
         });
 
         if (error) {
-          console.log("Supabase Error:", error.message);
-          setFeedback({ valid: false, message: error.message });
+          setFeedback({
+            valid: false,
+            message: getSignInErrorMessage(error.code),
+          });
         } else {
           start(() => router.replace('/(tabs)/home' as any));
         }
-      } catch (err: any) {
-        console.log("Catch Error:", err);
-        setFeedback({ valid: false, message: err.message || 'Network error. Check your Wi-Fi.' });
+      } catch {
+        setFeedback({
+          valid: false,
+          message: 'A connection problem stopped sign-in. Try again.',
+        });
       }
     }
   }
+
+  // ===============================================================
+  // SIGN-IN INTERFACE
+  // ===============================================================
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom', 'left', 'right']}>
@@ -144,7 +184,9 @@ export default function LoginScreen() {
           </Text>
 
           <Text style={styles.description}>
-            {isPhone ? 'Use your phone number to sign in.' : 'Use your email address to sign in.'}
+            {isPhone
+              ? 'Phone OTP is not connected in this internal alpha. Switch to temporary email and password access.'
+              : 'Temporary internal alpha access uses email and password. Phone OTP is not connected yet.'}
           </Text>
 
           {isPhone && (
@@ -154,8 +196,12 @@ export default function LoginScreen() {
                 onPress={() => setCountryPickerOpen((open) => !open)}
                 style={styles.countryButton}
               >
-                <Text style={styles.countryText}>{getPhoneCountryLabel(selectedCountry)}</Text>
-                <Text style={styles.countryAction}>{countryPickerOpen ? 'Close' : 'Change'}</Text>
+                <Text style={styles.countryText}>
+                  {getPhoneCountryLabel(selectedCountry)}
+                </Text>
+                <Text style={styles.countryAction}>
+                  {countryPickerOpen ? 'Close' : 'Change'}
+                </Text>
               </Pressable>
 
               {countryPickerOpen && (
@@ -167,10 +213,17 @@ export default function LoginScreen() {
                     itemStyle={styles.pickerItem}
                   >
                     {PHONE_COUNTRIES.map((item) => (
-                      <Picker.Item key={item.code} label={getPhoneCountryLabel(item)} value={item.code} />
+                      <Picker.Item
+                        key={item.code}
+                        label={getPhoneCountryLabel(item)}
+                        value={item.code}
+                      />
                     ))}
                   </Picker>
-                  <Pressable onPress={() => setCountryPickerOpen(false)} style={styles.pickerDoneButton}>
+                  <Pressable
+                    onPress={() => setCountryPickerOpen(false)}
+                    style={styles.pickerDoneButton}
+                  >
                     <Text style={styles.linkText}>Done</Text>
                   </Pressable>
                 </View>
@@ -178,10 +231,15 @@ export default function LoginScreen() {
             </>
           )}
 
-          <Text style={styles.label}>{isPhone ? 'Phone number' : 'Email address'}</Text>
+          <Text style={styles.label}>
+            {isPhone ? 'Phone number' : 'Email address'}
+          </Text>
           <TextInput
             key={method}
-            style={[styles.input, feedback?.valid === false && styles.inputError]}
+            style={[
+              styles.input,
+              feedback?.valid === false && styles.inputError,
+            ]}
             value={contact}
             onChangeText={updateContact}
             placeholder={isPhone ? 'Phone number' : 'you@example.com'}
@@ -195,7 +253,10 @@ export default function LoginScreen() {
             <>
               <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
               <TextInput
-                style={[styles.input, feedback?.valid === false && styles.inputError]}
+                style={[
+                  styles.input,
+                  feedback?.valid === false && styles.inputError,
+                ]}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Enter your password"
@@ -206,15 +267,23 @@ export default function LoginScreen() {
           )}
 
           <Pressable onPress={switchMethod} style={styles.switchButton}>
-            <Text style={styles.linkText}>{isPhone ? 'Use email instead' : 'Use phone instead'}</Text>
+            <Text style={styles.linkText}>
+              {isPhone ? 'Use email instead' : 'Use phone instead'}
+            </Text>
           </Pressable>
 
-          <Pressable onPress={validateContact} disabled={busy} style={styles.enterButton}>
+          <Pressable
+            onPress={validateContact}
+            disabled={busy}
+            style={styles.enterButton}
+          >
             <Text style={styles.enterButtonText}>Enter</Text>
           </Pressable>
 
           {feedback && (
-            <Text style={[styles.feedback, !feedback.valid && styles.errorText]}>
+            <Text
+              style={[styles.feedback, !feedback.valid && styles.errorText]}
+            >
               {feedback.message}
             </Text>
           )}
@@ -224,31 +293,109 @@ export default function LoginScreen() {
       <BrandedLoader
         visible={phase !== 'idle'}
         success={phase === 'success'}
-        label={phase === 'success' ? 'Login successful!' : 'Connecting to database…'}
+        label={
+          phase === 'success' ? 'Login successful!' : 'Connecting to database…'
+        }
       />
     </SafeAreaView>
   );
 }
 
+// ===============================================================
+// SCREEN STYLES
+// ===============================================================
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { flexGrow: 1, padding: 24, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: colors.text, marginBottom: 12 },
-  description: { fontSize: 16, lineHeight: 24, color: colors.secondaryText, marginBottom: 32 },
-  label: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 8 },
-  countryButton: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, marginBottom: 24 },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.secondaryText,
+    marginBottom: 32,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  countryButton: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    marginBottom: 24,
+  },
   countryText: { flex: 1, fontSize: 16, color: colors.text },
   countryAction: { fontSize: 14, fontWeight: '600', color: colors.link },
-  pickerPanel: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 24, overflow: 'hidden' },
+  pickerPanel: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
   picker: { width: '100%', color: colors.text },
   pickerItem: { fontSize: 18, color: colors.text },
-  pickerDoneButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, borderTopColor: colors.decorativeBorder },
-  input: { minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 16, fontSize: 16 },
+  pickerDoneButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.decorativeBorder,
+  },
+  input: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
   inputError: { borderColor: colors.error },
-  switchButton: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start', paddingVertical: 12, marginTop: 16 },
+  switchButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 12,
+    marginTop: 16,
+  },
   linkText: { fontSize: 16, fontWeight: '600', color: colors.link },
-  enterButton: { minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primary, marginTop: 16 },
+  enterButton: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    marginTop: 16,
+  },
   enterButtonText: { color: colors.onPrimary, fontSize: 16, fontWeight: '600' },
-  feedback: { marginTop: 12, fontSize: 14, lineHeight: 21, color: colors.secondaryText },
+  feedback: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.secondaryText,
+  },
   errorText: { color: colors.error },
 });

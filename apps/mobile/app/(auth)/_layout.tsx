@@ -1,5 +1,14 @@
+// ===============================================================
+// apps/mobile/app/(auth)/_layout.tsx
+// Configure shared navigation for registration and sign-in screens.
+// ===============================================================
+
 import { Stack } from 'expo-router';
 import { colors } from '@/constants/theme';
+
+// ===============================================================
+// AUTHENTICATION NAVIGATION STACK
+// ===============================================================
 
 export default function AuthLayout() {
   return (

@@ -5,14 +5,14 @@
 
 ## Boundaries & Environment
 
-The mobile app is fully connected to the live Supabase Cloud database and Auth. It uses Edge Functions for secure payment initialization, verification, and attendance check-in.
+The mobile app is fully connected to the live Supabase Cloud database and Auth. It uses Edge Functions for secure payment initialization, verification, and attendance check-in. 
 
 **Hosted Function Base URL:** `https://eqkicyqqwwrjpikcsbas.supabase.co/functions/v1`
 **Authentication:** All member endpoints require `Authorization: Bearer <access-token>` and validate the caller via Supabase Auth. Service-role keys are never used on the client side.
 
 ## Phase 1 & 2: Identity and Access
 
-- **Profile Provisioning:** A PostgreSQL trigger (`on_auth_user_created`) automatically creates a row in the `profiles` table for every new user.
+- **Profile Provisioning:** A PostgreSQL trigger (`on_auth_user_created`) automatically creates a row in the `profiles` table for every new user. The `phone` column is now optional in the DB to prevent signups from failing.
 - **Access Control:** The legacy `is_verified` barrier has been removed from both the database triggers and the Edge Functions. All authenticated members are granted immediate access to giving and attendance features without admin/usher approval.
 
 ## POST /offerings-initialize

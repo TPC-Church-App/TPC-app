@@ -1,62 +1,65 @@
+// ===============================================================
 // apps/mobile/app/(tabs)/scanner.tsx
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Button, Alert } from 'react-native';
+// Preview QR scanning without recording attendance in the internal alpha.
+// ===============================================================
+import { useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// ===============================================================
+// CAMERA PERMISSION AND SCANNER STATE
+// ===============================================================
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  // ===============================================================
+  // CAMERA ACCESS
+  // ===============================================================
 
   if (!permission) {
-    return <View />;
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.message}>Checking camera permission…</Text>
+      </SafeAreaView>
+    );
   }
 
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.message}>We need your permission to show the camera</Text>
-        <Button onPress={requestPermission} title="Grant Permission" />
+        <Text style={styles.message}>
+          We need your permission to show the camera
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={requestPermission}
+          style={styles.permissionButton}
+        >
+          <Text style={styles.permissionButtonText}>Allow camera access</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
 
-  async function handleBarCodeScanned({ data }: { data: string }) {
-    if (scanned || loading) return;
-    
+  // ===============================================================
+  // REPORT THAT THE CAMERA READ A QR CODE
+  // A scan alone is not proof of attendance; no endpoint is connected here.
+  // ===============================================================
+
+  function handleBarCodeScanned() {
+    if (scanned) return;
+
     setScanned(true);
-    setLoading(true);
-
-    try {
-      // Call the Supabase Edge Function we deployed earlier
-      const { data: responseData, error } = await supabase.functions.invoke('attendance-check-in', {
-        body: { qr_code: data },
-      });
-
-      if (error) throw new Error(error.message);
-      
-      // Success!
-      Alert.alert(
-        "Check-in Successful! 🎉",
-        `You have been marked present for: ${responseData.service_title || 'Service'}`,
-        [{ text: "OK", onPress: () => router.replace('/(tabs)/home') }]
-      );
-
-    } catch (err: any) {
-      // Handle errors like "Invalid QR", "Already checked in", etc.
-      Alert.alert(
-        "Check-in Failed",
-        err.message || "This QR code is invalid or has expired.",
-        [{ text: "Try Again", onPress: () => setScanned(false) }]
-      );
-    } finally {
-      setLoading(false);
-    }
   }
+
+  // ===============================================================
+  // SCANNER INTERFACE
+  // ===============================================================
 
   return (
     <View style={styles.container}>
@@ -65,10 +68,10 @@ export default function ScannerScreen() {
         facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ["qr"],
+          barcodeTypes: ['qr'],
         }}
       />
-      
+
       {/* Dark overlay with a clear box in the middle */}
       <View style={styles.overlay}>
         <View style={styles.unfocusedContainer}></View>
@@ -80,13 +83,44 @@ export default function ScannerScreen() {
         </View>
         <View style={styles.unfocusedContainer}>
           <Text style={styles.instructions}>
-            {loading ? "Verifying..." : "Align QR code within the frame"}
+            {scanned ? 'QR code detected' : 'Align QR code within the frame'}
           </Text>
         </View>
       </View>
+      {scanned && (
+        <View style={styles.resultBackdrop}>
+          <View style={styles.resultCard}>
+            <Text accessibilityRole="header" style={styles.resultTitle}>
+              QR code detected
+            </Text>
+            <Text style={styles.resultMessage}>
+              This internal alpha does not have the attendance check-in service
+              connected. No attendance was recorded.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setScanned(false)}
+              style={styles.resultButton}
+            >
+              <Text style={styles.resultButtonText}>Scan another</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.replace('/(tabs)/attendance')}
+              style={styles.resultLinkButton}
+            >
+              <Text style={styles.resultLinkText}>Return to attendance</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
+
+// ===============================================================
+// SCANNER STYLES
+// ===============================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -98,6 +132,19 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     color: '#fff',
     marginTop: 50,
+  },
+  permissionButton: {
+    minHeight: 48,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  permissionButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '700',
   },
   overlay: {
     position: 'absolute',
@@ -127,20 +174,98 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 20,
   },
+  resultBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  resultCard: {
+    width: '100%',
+    maxWidth: 420,
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+  },
+  resultTitle: {
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  resultMessage: {
+    marginTop: 12,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.secondaryText,
+  },
+  resultButton: {
+    minHeight: 48,
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  resultButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  resultLinkButton: {
+    minHeight: 44,
+    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultLinkText: {
+    color: colors.link,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   borderTopLeft: {
-    position: 'absolute', top: 0, left: 0, width: 40, height: 40,
-    borderTopWidth: 4, borderLeftWidth: 4, borderColor: colors.primary,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: colors.primary,
   },
   borderTopRight: {
-    position: 'absolute', top: 0, right: 0, width: 40, height: 40,
-    borderTopWidth: 4, borderRightWidth: 4, borderColor: colors.primary,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderColor: colors.primary,
   },
   borderBottomLeft: {
-    position: 'absolute', bottom: 0, left: 0, width: 40, height: 40,
-    borderBottomWidth: 4, borderLeftWidth: 4, borderColor: colors.primary,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: colors.primary,
   },
   borderBottomRight: {
-    position: 'absolute', bottom: 0, right: 0, width: 40, height: 40,
-    borderBottomWidth: 4, borderRightWidth: 4, borderColor: colors.primary,
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderColor: colors.primary,
   },
 });

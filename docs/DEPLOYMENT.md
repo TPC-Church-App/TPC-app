@@ -1,17 +1,22 @@
 # TPC Church App - Development and Deployment Preparation
 
 **Status:** Preparation guide, not a rehearsed production deployment runbook.
-**Updated:** 29 October 2026.
+**Updated:** 3 November 2026.
 
 ## Current runnable application
 
-The Expo mobile application has welcome and phone/email sign-in interfaces.
-OTP submission, sessions and backend integration remain unimplemented. The staff
-Next.js application contains placeholders and cannot yet be built or deployed.
+The Expo mobile application uses Supabase email/password Auth and invokes the
+Paystack offering initialization and verification functions. Phone OTP remains
+unimplemented. The Paystack callback destination is not connected. Attendance
+scanning is a camera-only preview in this branch; no attendance function is
+included or called.
+The staff Next.js application contains placeholders and cannot yet be built or
+deployed. Checked-in source does not prove hosted deployment or behaviour.
 
 ### Local mobile preview
 
-Prerequisites: Node.js, installed mobile dependencies, and Expo Go on the iPhone.
+Prerequisites: Node.js, installed mobile dependencies, client-safe Supabase URL
+and anonymous-key configuration, and Expo Go on the iPhone.
 Use the same Expo account and trusted Wi-Fi network on laptop and phone.
 
 ```powershell
@@ -77,9 +82,9 @@ The payment handlers read `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
 project's supported configuration before setting them manually.
 
 Service-role and Paystack secret keys are server-only. Never place them in the
-mobile bundle, browser code, source control, screenshots or shared logs. Client
-configuration is not connected yet; only client-safe project configuration may
-be exposed when that integration is implemented.
+mobile bundle, browser code, source control, screenshots or shared logs. The
+mobile app uses only the Supabase URL and anonymous key. Confirm Row Level
+Security and project policy before sharing an alpha build.
 
 ## Release and rollback
 

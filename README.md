@@ -4,13 +4,13 @@ Member participation, giving and church communication for The Pentecostal Congre
 
 TPC Church App comprises a member mobile application and a planned web dashboard for authorized church staff.
 
-**Current stage:** Member frontend demo milestone; backend integration and release verification remain separate work.
+**Current stage:** Internal alpha for supervisor and organization review. It is not a public beta or production release.
 
-**Working mobile interface:** Branded onboarding and demo OTP; Home, editable/saved device Profile and photos, department review outcomes, Settings, Messages/Notifications, Sermons/player, Community badges and both sponsor invitation types, worker schedules, attendance scanner/history/witness/offline queue, and demo checkout/return/payment history/receipts.
+**Working mobile interface:** Branded onboarding, Home, Profile, Settings, Messages/Notifications, Sermons/player, Community, attendance scanner/history and giving. This branch uses Supabase email/password Auth and Paystack initialization/verification. Phone OTP, hosted payment return, attendance server confirmation, and the remaining local-preview features still need backend or release validation.
 
-**Authentication status:** Supabase Auth integration pending. The application does not send OTP codes or create authenticated sessions.
+**Authentication status:** Supabase email/password sign-in is enabled for this internal alpha. The UI labels this temporary access clearly. Phone OTP is not connected; do not treat this path as the final public sign-in flow.
 
-**Release status:** Development only.
+**Release status:** Internal alpha review only. Public beta and production release remain future milestones.
 
 ## Project responsibilities
 
@@ -25,18 +25,18 @@ Design references are incomplete templates. Missing screens and behaviours still
 
 ## Architecture
 
-| Area               | Technology                                         | Current state                                                                        |
-| ------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Member application | React Native, Expo SDK 58, Expo Router, TypeScript | Runnable frontend previews; live authentication and payments pending                 |
-| Country selector   | @react-native-picker/picker                        | 28-country selector; wheel interface on iPhone                                       |
-| Phone handling     | libphonenumber-js                                  | Country-aware formatting and numbering-pattern validation                            |
-| Staff dashboard    | Planned Next.js App Router                         | Comment-only placeholders; package initialization pending                            |
-| Database           | Supabase PostgreSQL                                | Initial schema, seed data and hardening migration                                    |
-| Authentication     | Planned Supabase phone and email OTP               | Configuration and integration pending                                                |
-| Custom backend     | TypeScript / Supabase Edge Functions               | Payment handlers and shared helpers                                                  |
-| Payments           | Paystack                                           | Initialization, verification and webhook implementation; live integration unverified |
-| Live updates       | Planned Supabase Realtime                          | Application integration pending                                                      |
-| Shared packages    | Reserved types, configuration and UI directories   | Not configured as installable packages                                               |
+| Area               | Technology                                         | Current state                                                                                                    |
+| ------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Member application | React Native, Expo SDK 58, Expo Router, TypeScript | Runnable app; email/password Auth and Paystack functions are wired, hosted behaviour still needs validation      |
+| Country selector   | @react-native-picker/picker                        | 28-country selector; wheel interface on iPhone                                                                   |
+| Phone handling     | libphonenumber-js                                  | Country-aware formatting and numbering-pattern validation                                                        |
+| Staff dashboard    | Planned Next.js App Router                         | Comment-only placeholders; package initialization pending                                                        |
+| Database           | Supabase PostgreSQL                                | Initial schema, seed data and hardening migration                                                                |
+| Authentication     | Supabase Auth                                      | Email/password available for internal alpha; phone/email OTP remains pending                                     |
+| Custom backend     | TypeScript / Supabase Edge Functions               | Payment handlers and shared helpers                                                                              |
+| Payments           | Paystack                                           | Initialize/verify functions are wired; hosted return, server-side ₦500 minimum and acceptance checks remain open |
+| Live updates       | Planned Supabase Realtime                          | Application integration pending                                                                                  |
+| Shared packages    | Reserved types, configuration and UI directories   | Not configured as installable packages                                                                           |
 
 Backend functions use Deno APIs. The project does not currently contain an Express application server.
 
@@ -348,13 +348,13 @@ Reconciliation, refunds, recovery and financial retention/anonymization remain u
 
 ### Giving and payment-history frontend
 
-Giving offers Offering, Tithes, Property giving, From the heart and a sample outreach campaign. Funds are fixtures, not administrator-managed data. Amounts use integer kobo. The receipt-email field validates the design but does not send mail or persist that contact.
+Giving loads active fund records from Supabase and shows selectors for Offering, Tithes, Property giving, Church mission, Evangelist and Church outreach program. It sends only the selected live fund UUID to checkout; it never invents a payment fund. The current database seed has Offering, Tithe, Building and Missions. Evangelist and outreach remain unavailable until active funds are published. Unknown active funds appear under Other active funds. The current schema has no fund-category field, so name matching is a temporary bridge; the backend contract should supply a category for reliable admin-managed campaigns.
 
-A reviewed gift creates an owned `DEMO-` checkout reference on this device. Checkout previews pending, ongoing, processing, queued, successful, failed, abandoned/cancelled and reversed outcomes. The return screen requires an explicit demo action; navigation parameters alone do not change payment state. Unknown references cannot create records. Terminal failures require a new checkout; replay cannot undo success, and a reversal removes receipt eligibility.
+The current Giving screen uses suggested amounts starting at ₦500, accepts custom amounts, initializes a server-owned Paystack transaction and asks the verification function for the authoritative result. Android browser launch alone does not prove payment; members must return and request status verification. Payment History queries the member's offerings. Demo checkout/return routes remain previews and do not receive live Paystack callbacks.
 
 Payment History is separate from Giving. It filters saved demo checkouts or opt-in sample illustrations by category and status. A demo receipt is available only for a successful saved demo checkout and states that it is not payment proof. The workspace holds up to 50 payment demos and 30 invitations.
 
-No Paystack checkout, live callback, payment verification, real history or financial receipt is connected. Those remain backend integration work. Proposed fund/campaign data requirements appear in the API contract; they do not claim an available endpoint.
+The checked-in initialize handler and database constraint still accept ₦100, while the product UI requires ₦500. The backend handler, database constraint and tests must change to ₦500 before relying on the minimum. The configured `APP_URL/payment/callback` destination is not implemented. Attendance scanning is a camera-only preview; this branch contains no attendance function and does not record a scan as attendance. Email/password signup stores member details in Auth metadata, but the checked-in profile trigger provisions profiles only when Supabase Auth has a phone value and a display name. The backend must agree and implement profile provisioning for this alpha sign-up flow. See [API contract](docs/API-CONTRACT.md).
 
 ## Local mobile development
 
@@ -472,41 +472,36 @@ Some Supabase values are supplied by the function runtime. Verify target-project
 
 Service-role credentials and Paystack secret keys belong on the server. Do not place them in mobile/browser bundles or commit real credentials.
 
-The current mobile preview needs no Supabase or Paystack credentials. Safe environment examples, payment callbacks and mobile return-flow configuration remain pending.
+The mobile app needs client-safe Supabase URL and anonymous-key configuration for Auth and Edge Function calls. Paystack secret keys and Supabase service-role credentials stay on the server. Hosted payment callbacks and a mobile return-flow contract remain pending.
 
 Do not log phone numbers, email addresses, OTP values, access tokens or secret keys while implementing authentication.
 
 ## Verification record
 
-**Current batch:** the user reported passing Prettier format:check, TypeScript and the original 23 tests before the final functional fixes. The current source adds 18 recovery/lifecycle cases (41 total) and stronger name-limit assertions. The attached post-fix output confirms Prettier write/check, TypeScript and all 41 tests passed (0 failed/skipped). After the expo-asset peer was installed, Expo alignment and Doctor 20/20 passed; both iOS/web exports completed. The current audit reports eight findings (five low, three high) from Zod/deepmerge and remains unresolved. The user confirmed both iPhone and browser acceptance passed on 31 October 2026; these are manually reported results. The assistant has used library-based source formatting/syntax checks and has run no terminal commands. See [member demo handoff](docs/MEMBER-UI-HANDOFF.md) and [acceptance cases](docs/MEMBER-UI-TEST-PLAN.md). Earlier results below apply to earlier snapshots.
+**Current backend PR branch:** the user reported that Prettier, TypeScript, all 41 tests, Expo SDK alignment and Expo Doctor 20/20 passed before the latest payment/auth/scanner corrections. Those checks must be rerun against the current working copy. The user's earlier iPhone/browser acceptance and iOS/web exports apply to a prior UI branch, not this backend PR. The latest reported audit has 12 moderate findings in Expo's dependency tree; `npm audit fix --force` proposes breaking SDK changes and has not been applied. Current iOS and web exports and acceptance checks remain pending. See [API contract](docs/API-CONTRACT.md) for the verified gaps.
 
 ### Historical foundation verification baseline
 
 Verification completed on 29 October 2026:
 
-| Check                                                                              | Evidence and result                                                       |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Formatting                                                                         | User-supplied terminal output confirms `npm run format` completed         |
-| Formatting verification                                                            | `npm run format:check` reported that all matched files use Prettier style |
-| TypeScript                                                                         | `npm run typecheck` completed without errors                              |
-| Current iOS export                                                                 | Expo successfully exported a Hermes bundle and assets to `dist`           |
-| Branded opening and cream/gold palette                                             | User-reported iPhone testing and supplied screenshots                     |
-| Country wheel, phone/email entry and phone formatting                              | User-reported iPhone testing                                              |
-| Enter controls and navigation                                                      | User-reported iPhone testing                                              |
-| OTP preview, empty/short-code feedback, paste/edit behaviour and keyboard controls | User reported that the final device regression checks passed              |
-| Git whitespace                                                                     | Passed against tracked changes before final README closeout               |
+| Check                                                                                              | Evidence and result                                                             |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Formatting                                                                                         | User-supplied terminal output confirms `npm run format` completed               |
+| Formatting verification                                                                            | `npm run format:check` reported that all matched files use Prettier style       |
+| TypeScript                                                                                         | `npm run typecheck` completed without errors                                    |
+| Current iOS export                                                                                 | Expo successfully exported a Hermes bundle and assets to `dist`                 |
+| Branded opening and cream/gold palette                                                             | User-reported iPhone testing and supplied screenshots                           |
+| Country wheel, phone/email entry and phone formatting                                              | User-reported iPhone testing                                                    |
+| Enter controls and navigation                                                                      | User-reported iPhone testing                                                    |
+| Prior UI branch OTP preview, empty/short-code feedback, paste/edit behaviour and keyboard controls | User reported that the device regression checks passed on the earlier UI branch |
+| Git whitespace                                                                                     | Passed against tracked changes before final README closeout                     |
 
-The iOS export contained a 2.8 MB Hermes bundle and the light church-logo asset.
-It is a local bundle export, not a signed application or deployment.
+The earlier iOS export produced a Hermes bundle and church-logo assets. It was a local bundle export, not a signed application or deployment, and does not validate the current backend PR branch.
 
 Device checks are manually reported results, not automated interaction tests.
-The current verification screen checks the development-only demo code. No real OTP
-request, server verification or authenticated session has been implemented.
-The newer Giving and Payment History pages require their own formatting,
-TypeScript and device checks; the historical results above do not verify them.
+The current login path uses Supabase email/password and does not send or verify OTP codes. Giving and Payment History call the backend but still need current-branch formatting, TypeScript, test, export and device checks.
 
-Known dependency security findings remain unresolved. Formatting, TypeScript,
-bundling and device checks do not establish production readiness.
+Known dependency findings remain unresolved. Formatting, TypeScript, bundling and device checks do not establish production readiness.
 
 ### Historical backend checks
 
@@ -622,10 +617,10 @@ The checks in this subsection indicate source written, not tests passed.
 - [x] Build demo checkout, explicit return processing, all documented provider statuses, saved demo history and receipt eligibility.
 - [x] Add regression test source for payment ownership/replay, profile rules, witness eligibility, queue transitions and menu destinations.
 - [x] Correct name-limit consistency, blocked writes after loading failure, corrupt-storage recovery, schedule shortcut focus and async playback cancellation.
-- [x] Add recovery/lifecycle regression source, bringing the Node suite to 41 cases; execution of the final snapshot remains pending.
+- [x] Add recovery/lifecycle, Paystack-response and giving-category regression source, bringing the Node suite to 44 cases; execution of the latest snapshot remains pending.
 - [x] Standardize frontend filename/purpose banners and meaningful section comments; clarify inactive parked routes.
 - [x] Install the new Expo modules and update the mobile lockfile (manifest/installed-module presence checked).
-- [ ] Run Prettier write/check, TypeScript, all 41 regression tests, Expo compatibility/doctor and iOS/web exports after the final fixes.
+- [ ] Run Prettier write/check, TypeScript, all 44 regression tests, Expo compatibility/doctor and iOS/web exports after the latest giving changes.
 - [x] Receive user confirmation that final iPhone and browser acceptance passed (31 October 2026; manually reported).
 - [ ] Review the full branch diff, commit/push manually and obtain partner review into `dev`.
 - [ ] Integrate real authentication, accounts, approvals, content, signed QRs, sync, payment checkout and receipts with agreed backend contracts.
