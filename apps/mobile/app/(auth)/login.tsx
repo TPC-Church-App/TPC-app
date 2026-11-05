@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import type { CountryCode } from 'libphonenumber-js';
 import {
+  Alert, // ADDED ALERT FOR DEBUGGING
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -40,11 +41,6 @@ type ContactFeedback = {
   valid: boolean;
 };
 
-// ===============================================================
-// MAP AUTH FAILURES TO SAFE, MEMBER-FACING MESSAGES
-// Avoid showing account identifiers or raw server responses.
-// ===============================================================
-
 function getSignInErrorMessage(code?: string) {
   if (code === 'invalid_credentials') {
     return 'Email or password is incorrect.';
@@ -76,10 +72,6 @@ export default function LoginScreen() {
     (item) => item.code === country,
   )!;
 
-  // ===============================================================
-  // CONTACT METHOD AND COUNTRY INPUT
-  // ===============================================================
-
   function updateContact(value: string) {
     setFeedback(null);
     if (!isPhone) {
@@ -110,57 +102,66 @@ export default function LoginScreen() {
 
   // ===============================================================
   // CONTACT VALIDATION AND AUTH REQUEST
-  // Phone OTP is not connected here; email/password uses Supabase Auth.
   // ===============================================================
 
   async function validateContact() {
-    if (busy) return;
+    Alert.alert("Debug 1", "Button pressed! Starting validation.");
+    
+    if (busy) {
+      Alert.alert("Debug", "App is busy. Try again in a second.");
+      return;
+    }
+    
     Keyboard.dismiss();
     setCountryPickerOpen(false);
 
     if (isPhone) {
-      // Phone authentication is unavailable in this backend branch.
       setFeedback({
         valid: false,
         message: 'Please switch to "Use email instead" to test the backend.',
       });
       return;
-    } else {
-      const trimmed = contact.trim();
+    } 
 
-      if (!trimmed) {
-        setFeedback({ valid: false, message: 'Enter your email address.' });
-        return;
-      }
+    const trimmed = contact.trim();
 
-      if (!password) {
-        setFeedback({ valid: false, message: 'Enter your password.' });
-        return;
-      }
+    if (!trimmed) {
+      setFeedback({ valid: false, message: 'Enter your email address.' });
+      return;
+    }
 
-      setContact(trimmed);
-      setFeedback(null);
+    if (!password) {
+      setFeedback({ valid: false, message: 'Enter your password.' });
+      return;
+    }
 
-      try {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: trimmed,
-          password,
-        });
+    setContact(trimmed);
+    setFeedback(null);
 
-        if (error) {
-          setFeedback({
-            valid: false,
-            message: getSignInErrorMessage(error.code),
-          });
-        } else {
-          start(() => router.replace('/(tabs)/home'));
-        }
-      } catch {
+    try {
+      Alert.alert("Debug 2", "Connecting to Supabase Cloud...");
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
+
+      if (error) {
+        Alert.alert("Supabase Error", error.message);
         setFeedback({
           valid: false,
-          message: 'A connection problem stopped sign-in. Try again.',
+          message: getSignInErrorMessage(error.code),
         });
+      } else {
+        Alert.alert("Debug 3", "Login Success! Routing to home.");
+        start(() => router.replace('/(tabs)/home'));
       }
+    } catch (err: any) {
+      Alert.alert("Catch Error", err.message || "Unknown network error");
+      setFeedback({
+        valid: false,
+        message: 'A connection problem stopped sign-in. Try again.',
+      });
     }
   }
 
@@ -248,7 +249,6 @@ export default function LoginScreen() {
             autoCorrect={false}
           />
 
-          {/* NEW: Password Input for Local Testing */}
           {!isPhone && (
             <>
               <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>

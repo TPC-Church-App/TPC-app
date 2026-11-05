@@ -1,37 +1,14 @@
-// ===============================================================
-// apps/mobile/lib/supabase.ts
-// Configure the mobile Supabase client with persistent user sessions.
-// ===============================================================
-
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
-import {
-  createChunkedSecureStorage,
-  createMigratingAuthStorage,
-} from '@/utils/chunked-secure-storage';
 
-// ===============================================================
-// PUBLIC CLIENT CONFIGURATION
-// Keep service-role credentials out of the mobile application.
-// ===============================================================
-
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
-const authStorage =
-  Platform.OS === 'web'
-    ? AsyncStorage
-    : createMigratingAuthStorage(createChunkedSecureStorage(SecureStore), {
-        getItem: (key) => AsyncStorage.getItem(key),
-        setItem: (key, value) => AsyncStorage.setItem(key, value),
-        removeItem: (key) => AsyncStorage.removeItem(key),
-      });
+// TEMPORARY HARDCODE FOR APK TESTING
+const supabaseUrl = 'https://eqkicyqqwwrjpikcsbas.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxa2ljeXFxd3dyanBpa2NzYmFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MTAzMzEsImV4cCI6MjEwODE4NjMzMX0.rQ1EwEmpN0d6OIjrQaDa-KpRjScw8Ma1EptiuQG82jM';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: authStorage,
+    storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
