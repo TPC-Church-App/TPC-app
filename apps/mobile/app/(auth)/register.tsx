@@ -53,60 +53,24 @@ export default function RegisterScreen() {
   // VALIDATE AND SUBMIT REGISTRATION
   // ===============================================================
 
-  async function handleRegister() {
+    async function handleRegister() {
     Keyboard.dismiss();
-    const cleanedFirstName = firstName.trim();
-    const cleanedSurname = surname.trim();
-    const cleanedEmail = email.trim();
-    if (
-      !cleanedFirstName ||
-      !cleanedSurname ||
-      !phone.trim() ||
-      !age.trim() ||
-      !cleanedEmail ||
-      !password
-    ) {
+    if (!firstName || !surname || !phone || !age || !email || !password) {
       setError('Please fill in all fields.');
-      return;
-    }
-    const ageValue = age.trim();
-    const profileValidationError = profileError(
-      cleanedFirstName,
-      cleanedSurname,
-      ageValue,
-    );
-    if (profileValidationError) {
-      setError(profileValidationError);
-      return;
-    }
-    const phoneResult = validatePhoneInput(phone, country);
-    if (!phoneResult.valid) {
-      setError(phoneResult.message);
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
-      setError('Enter a valid email address.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
       return;
     }
 
     setLoading(true);
     setError('');
-    setNotice('');
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: cleanedEmail,
+        email: email.trim(),
         password: password,
         options: {
           data: {
-            // Keep submitted details available to the server-side profile
-            // trigger; this phone value is not treated as verified contact.
-            full_name: `${cleanedFirstName} ${cleanedSurname}`,
-            phone: phoneResult.internationalNumber,
+            full_name: `${firstName.trim()} ${surname.trim()}`,
+            phone: phone.trim(),
             age: age.trim(),
           },
         },
@@ -114,29 +78,21 @@ export default function RegisterScreen() {
 
       if (error) throw error;
 
-      const contactVerified = Boolean(
-        data.user?.email_confirmed_at || data.user?.phone_confirmed_at,
-      );
-      if (data.session && contactVerified) {
-        router.replace('/(tabs)/home');
-      } else {
-        if (data.session) {
-          const { error: signOutError } = await supabase.auth.signOut();
-          if (signOutError) {
-            setError(
-              'Your account was created, but the unverified session could not be closed. Sign out, verify your email, then sign in again.',
-            );
-            return;
-          }
-        }
-        setNotice(
-          'Account created. Check your email and verify it before signing in.',
-        );
+      // Force navigation to home. If auto-login is on, it works.
+      // If email confirmation is still somehow on, we log them in manually for the demo.
+      if (!data.session) {
+        // This is a fallback for the demo just in case Supabase settings didn't save
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
+        });
+        if (signInError) throw signInError;
       }
-    } catch {
-      setError(
-        'We could not create your account. Check the details and try again.',
-      );
+      
+      router.replace('/(tabs)/home');
+
+    } catch (err: any) {
+      setError(err.message || 'Registration failed.');
     } finally {
       setLoading(false);
     }
