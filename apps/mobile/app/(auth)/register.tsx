@@ -1,11 +1,10 @@
-// ===============================================================
 // apps/mobile/app/(auth)/register.tsx
-// Collect member details and create an account with Supabase Auth.
 // ===============================================================
+// Collect member details before phone/email verification.
+// ===============================================================
+
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Picker } from '@react-native-picker/picker';
-import type { CountryCode } from 'libphonenumber-js';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -20,43 +19,46 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import {
-  DEFAULT_PHONE_COUNTRY,
-  getPhoneCountryLabel,
-  PHONE_COUNTRIES,
-} from '@/constants/countries';
-import { formatPhoneInput, validatePhoneInput } from '@/utils/phone';
-import { profileError } from '@/utils/member-demo';
-
-// ===============================================================
-// REGISTRATION STATE AND SUBMISSION
-// ===============================================================
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
-  const [country, setCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
-  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const selectedCountry = PHONE_COUNTRIES.find(
-    (item) => item.code === country,
-  )!;
 
   // ===============================================================
-  // VALIDATE AND SUBMIT REGISTRATION
+  // REQUIRED MEMBER DETAILS
   // ===============================================================
-
-    async function handleRegister() {
+  async function handleRegister() {
     Keyboard.dismiss();
-    if (!firstName || !surname || !phone || !age || !email || !password) {
-      setError('Please fill in all fields.');
+
+    // 1. Trim first to handle whitespace-only inputs
+    const tFirst = firstName.trim();
+    const tSurname = surname.trim();
+    const tEmail = email.trim();
+    const tPhone = phone.trim();
+    const tAge = parseInt(age.trim(), 10);
+
+    // 2. Restore validations
+    if (!tFirst || !tSurname) {
+      setError('First name and surname are required.');
+      return;
+    }
+    if (isNaN(tAge) || tAge < 4) {
+      setError('You must be at least 4 years old to register.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tEmail)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
 
@@ -65,42 +67,38 @@ export default function RegisterScreen() {
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: tEmail,
         password: password,
         options: {
           data: {
-            full_name: `${firstName.trim()} ${surname.trim()}`,
-            phone: phone.trim(),
-            age: age.trim(),
+            full_name: `${tFirst} ${tSurname}`,
+            phone: tPhone,
+            age: tAge.toString(),
           },
         },
       });
 
       if (error) throw error;
 
-      // Force navigation to home. If auto-login is on, it works.
-      // If email confirmation is still somehow on, we log them in manually for the demo.
-      if (!data.session) {
-        // This is a fallback for the demo just in case Supabase settings didn't save
+      if (data.session) {
+        router.replace('/(tabs)/home');
+      } else {
+        // Fallback just in case email confirmation is still on in Supabase
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: tEmail,
           password: password,
         });
         if (signInError) throw signInError;
+        router.replace('/(tabs)/home');
       }
-      
-      router.replace('/(tabs)/home');
-
     } catch (err: any) {
-      setError(err.message || 'Registration failed.');
+      // 3. Hide raw server errors from the user
+      console.error('Registration Error:', err.message);
+      setError('Registration failed. Please check your details and try again.');
     } finally {
       setLoading(false);
     }
   }
-
-  // ===============================================================
-  // REGISTRATION INTERFACE
-  // ===============================================================
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom', 'left', 'right']}>
@@ -115,93 +113,42 @@ export default function RegisterScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             Create an account
           </Text>
-          <Text style={styles.description}>
-            Join the TPC community today. Email and password access is temporary
-            for this internal alpha; your phone number is collected but not
-            verified because phone OTP is not connected yet.
-          </Text>
-
-          {notice !== '' && (
-            <Text accessibilityLiveRegion="polite" style={styles.noticeText}>
-              {notice}
-            </Text>
-          )}
+          <Text style={styles.description}>Join the TPC community today.</Text>
 
           <Text style={styles.label}>First name</Text>
           <TextInput
+            accessibilityLabel="First name"
             style={styles.input}
             value={firstName}
             onChangeText={setFirstName}
             placeholder="First name"
-            accessibilityLabel="First name"
             placeholderTextColor={colors.secondaryText}
           />
 
           <Text style={styles.label}>Surname</Text>
           <TextInput
+            accessibilityLabel="Surname"
             style={styles.input}
             value={surname}
             onChangeText={setSurname}
             placeholder="Surname"
-            accessibilityLabel="Surname"
             placeholderTextColor={colors.secondaryText}
           />
 
-          <Text style={styles.label}>Country</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Phone country: ${getPhoneCountryLabel(selectedCountry)}`}
-            onPress={() => setCountryPickerOpen((open) => !open)}
-            style={styles.countryButton}
-          >
-            <Text style={styles.countryText}>
-              {getPhoneCountryLabel(selectedCountry)}
-            </Text>
-            <Text style={styles.linkText}>
-              {countryPickerOpen ? 'Close' : 'Change'}
-            </Text>
-          </Pressable>
-          {countryPickerOpen && (
-            <View style={styles.pickerPanel}>
-              <Picker
-                selectedValue={country}
-                onValueChange={(value) => {
-                  setCountry(value as CountryCode);
-                  setPhone('');
-                }}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                {PHONE_COUNTRIES.map((item) => (
-                  <Picker.Item
-                    key={item.code}
-                    label={getPhoneCountryLabel(item)}
-                    value={item.code}
-                  />
-                ))}
-              </Picker>
-              <Pressable
-                onPress={() => setCountryPickerOpen(false)}
-                style={styles.pickerDoneButton}
-              >
-                <Text style={styles.linkText}>Done</Text>
-              </Pressable>
-            </View>
-          )}
           <Text style={styles.label}>Phone number</Text>
           <TextInput
+            accessibilityLabel="Phone number"
             style={styles.input}
             value={phone}
-            onChangeText={(value) => setPhone(formatPhoneInput(value, country))}
-            placeholder="e.g. 080 1234 5678"
+            onChangeText={setPhone}
+            placeholder="e.g. 08012345678"
             keyboardType="phone-pad"
-            autoComplete="tel"
-            accessibilityLabel="Phone number"
             placeholderTextColor={colors.secondaryText}
           />
 
           <Text style={styles.label}>Age</Text>
           <TextInput
+            accessibilityLabel="Age"
             style={styles.input}
             value={age}
             onChangeText={setAge}
@@ -209,24 +156,23 @@ export default function RegisterScreen() {
             keyboardType="number-pad"
             maxLength={3}
             placeholderTextColor={colors.secondaryText}
-            accessibilityLabel="Age in years"
           />
 
           <Text style={styles.label}>Email address</Text>
           <TextInput
+            accessibilityLabel="Email address"
             style={styles.input}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
             placeholderTextColor={colors.secondaryText}
-            accessibilityLabel="Email address"
           />
 
           <Text style={styles.label}>Password</Text>
           <TextInput
+            accessibilityLabel="Password"
             style={styles.input}
             value={password}
             onChangeText={setPassword}
@@ -234,7 +180,6 @@ export default function RegisterScreen() {
             secureTextEntry
             autoCapitalize="none"
             placeholderTextColor={colors.secondaryText}
-            accessibilityLabel="Password"
           />
 
           {error !== '' && (
@@ -244,6 +189,7 @@ export default function RegisterScreen() {
           )}
 
           <Pressable
+            accessibilityRole="button"
             onPress={handleRegister}
             disabled={loading}
             style={styles.button}
@@ -254,6 +200,7 @@ export default function RegisterScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
             onPress={() => router.push('/(auth)/login')}
             style={styles.switchButton}
           >
@@ -266,10 +213,6 @@ export default function RegisterScreen() {
     </SafeAreaView>
   );
 }
-
-// ===============================================================
-// SCREEN STYLES
-// ===============================================================
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
@@ -304,42 +247,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
   },
-  countryButton: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  countryText: { flexShrink: 1, color: colors.text, fontSize: 16 },
-  pickerPanel: {
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  picker: { color: colors.text },
-  pickerItem: { color: colors.text },
-  pickerDoneButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   errorText: { color: colors.error, fontSize: 14, marginBottom: 12 },
-  noticeText: {
-    color: colors.success,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 16,
-  },
   button: {
     minHeight: 52,
     alignItems: 'center',
