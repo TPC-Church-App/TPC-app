@@ -78,6 +78,10 @@ export default function LoginScreen() {
     setFeedback(null);
   }
 
+// ===============================================================
+// CONTACT VALIDATION AND AUTH REQUEST
+// ===============================================================
+
   async function validateContact() {
     if (loading) return;
     Keyboard.dismiss();
@@ -139,7 +143,7 @@ export default function LoginScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Welcome back</Text>
+          <Text accessibilityRole="header" style={styles.title}>Welcome back</Text>
           <Text style={styles.description}>
             {isPhone
               ? 'Phone OTP is not connected. Switch to email.'

@@ -1,4 +1,8 @@
+// ===============================================================
 // apps/mobile/app/(tabs)/home.tsx
+// Present the member Home using the church palette.
+// ===============================================================
+
 import { useAttendanceDraft } from '@/store/attendance-draft';
 import { formatAttendanceTime } from '@/utils/attendance';
 import { router } from 'expo-router';
@@ -18,6 +22,10 @@ import { useMemberDraft } from '@/store/member-draft';
 import MemberMenu from '@/components/member-menu';
 import MemberBackButton from '@/components/member-back-button';
 import { supabase } from '@/lib/supabase';
+
+// ===============================================================
+// MEMBER HOME
+// ===============================================================
 
 export default function HomeScreen() {
   const { draft, entryMode } = useMemberDraft();
@@ -55,6 +63,7 @@ export default function HomeScreen() {
               source={require('../../assets/light/church-logo.png')}
               style={styles.logo}
               resizeMode="contain"
+              accessibilityLabel="The Pentecostal Congregation logo"
             />
             <View style={styles.wordmark}>
               <Text style={styles.churchName}>TPC</Text>
@@ -113,6 +122,8 @@ export default function HomeScreen() {
         </Text>
         <View style={styles.actions}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open service check-in"
             onPress={() => router.navigate('/(tabs)/attendance')}
             style={({ pressed }) => [
               styles.actionCard,
@@ -124,6 +135,8 @@ export default function HomeScreen() {
             <Text style={styles.actionLink}>Check in →</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open giving"
             onPress={() => router.navigate('/(tabs)/giving')}
             style={({ pressed }) => [
               styles.actionCard,
@@ -156,6 +169,10 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+// ===============================================================
+// HOME STYLES
+// ===============================================================
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
