@@ -1,4 +1,8 @@
+// ===============================================================
 // apps/mobile/app/(auth)/login.tsx
+// Validate phone contact input and sign in with temporary email/password auth.
+// ===============================================================
+
 import { Picker } from '@react-native-picker/picker';
 import { useState } from 'react';
 import { router } from 'expo-router';
@@ -25,7 +29,15 @@ import { colors } from '@/constants/theme';
 import { formatPhoneInput } from '@/utils/phone';
 import { supabase } from '@/lib/supabase';
 
+// ===============================================================
+// SIGN-IN FEEDBACK AND KEYBOARD SUPPORT
+// ===============================================================
+
 type ContactFeedback = { message: string; valid: boolean };
+
+// ===============================================================
+// MAP AUTH FAILURES TO SAFE, MEMBER-FACING MESSAGES
+// ===============================================================
 
 function getSignInErrorMessage(code?: string) {
   if (code === 'invalid_credentials') return 'Email or password is incorrect.';
@@ -35,6 +47,10 @@ function getSignInErrorMessage(code?: string) {
     return 'Too many attempts. Wait and try again.';
   return 'We could not sign you in. Check your connection.';
 }
+
+// ===============================================================
+// SIGN-IN STATE AND ACTIONS
+// ===============================================================
 
 export default function LoginScreen() {
   const [method, setMethod] = useState<'phone' | 'email'>('email');
@@ -49,6 +65,10 @@ export default function LoginScreen() {
   const selectedCountry = PHONE_COUNTRIES.find(
     (item) => item.code === country,
   )!;
+
+  // ===============================================================
+  // CONTACT METHOD AND COUNTRY INPUT
+  // ===============================================================
 
   function updateContact(value: string) {
     setFeedback(null);
@@ -78,9 +98,9 @@ export default function LoginScreen() {
     setFeedback(null);
   }
 
-// ===============================================================
-// CONTACT VALIDATION AND AUTH REQUEST
-// ===============================================================
+  // ===============================================================
+  // CONTACT VALIDATION AND AUTH REQUEST
+  // ===============================================================
 
   async function validateContact() {
     if (loading) return;
@@ -133,6 +153,10 @@ export default function LoginScreen() {
     }
   }
 
+  // ===============================================================
+  // SIGN-IN INTERFACE
+  // ===============================================================
+
   return (
     <SafeAreaView style={styles.screen} edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -143,7 +167,9 @@ export default function LoginScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text accessibilityRole="header" style={styles.title}>Welcome back</Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Welcome back
+          </Text>
           <Text style={styles.description}>
             {isPhone
               ? 'Phone OTP is not connected. Switch to email.'
@@ -253,6 +279,10 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
+
+// ===============================================================
+// SCREEN STYLES
+// ===============================================================
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
