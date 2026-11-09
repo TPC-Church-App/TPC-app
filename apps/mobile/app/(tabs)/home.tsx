@@ -1,7 +1,8 @@
 // ===============================================================
 // apps/mobile/app/(tabs)/home.tsx
-// Show account greeting, service details and feature entry points.
+// Present the member Home using the church palette.
 // ===============================================================
+
 import { useAttendanceDraft } from '@/store/attendance-draft';
 import { formatAttendanceTime } from '@/utils/attendance';
 import { router } from 'expo-router';
@@ -23,9 +24,7 @@ import MemberBackButton from '@/components/member-back-button';
 import { supabase } from '@/lib/supabase';
 
 // ===============================================================
-// HOME DATA AND MEMBER GREETING
-// Prefer the signed-in account name, then the registration draft.
-// Service details remain local demo data.
+// MEMBER HOME
 // ===============================================================
 
 export default function HomeScreen() {
@@ -44,10 +43,7 @@ export default function HomeScreen() {
           setAccountFirstName(fullName.trim().split(/\s+/)[0] ?? '');
         }
       })
-      .catch(() => {
-        // The greeting can fall back to the registration draft if session
-        // storage is unavailable; do not expose account or storage details.
-      });
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -56,10 +52,6 @@ export default function HomeScreen() {
   const firstName =
     (entryMode === 'register' ? draft.firstName.trim() : '') ||
     accountFirstName;
-
-  // ===============================================================
-  // HOME INTERFACE
-  // ===============================================================
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -78,7 +70,6 @@ export default function HomeScreen() {
               <Text style={styles.caption}>Faith. Family. Purpose.</Text>
             </View>
           </View>
-
           <MemberMenu />
         </View>
 
@@ -98,14 +89,12 @@ export default function HomeScreen() {
               GATHER WITH US
             </Text>
           </View>
-
           <Text accessibilityRole="header" style={styles.serviceTitle}>
             {service?.name || 'Sunday Service'}
           </Text>
           <Text style={styles.serviceDescription}>
             Come together for worship, prayer and the Word.
           </Text>
-
           <View style={styles.serviceDetails}>
             <View style={styles.serviceDetail}>
               <Text style={styles.detailLabel}>DAY</Text>
@@ -131,10 +120,10 @@ export default function HomeScreen() {
         <Text accessibilityRole="header" style={styles.sectionTitle}>
           Take part
         </Text>
-
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Open service check-in"
             onPress={() => router.navigate('/(tabs)/attendance')}
             style={({ pressed }) => [
               styles.actionCard,
@@ -145,9 +134,9 @@ export default function HomeScreen() {
             <Text style={styles.caption}>Be part of the gathering</Text>
             <Text style={styles.actionLink}>Check in →</Text>
           </Pressable>
-
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Open giving"
             onPress={() => router.navigate('/(tabs)/giving')}
             style={({ pressed }) => [
               styles.actionCard,
@@ -182,7 +171,7 @@ export default function HomeScreen() {
 }
 
 // ===============================================================
-// HOME SCREEN STYLES
+// HOME STYLES
 // ===============================================================
 
 const styles = StyleSheet.create({

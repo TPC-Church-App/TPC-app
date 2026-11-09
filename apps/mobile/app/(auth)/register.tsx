@@ -1,12 +1,14 @@
 // ===============================================================
 // apps/mobile/app/(auth)/register.tsx
-// Collect member details and create an account with Supabase Auth.
+// Collect member details before phone/email verification.
 // ===============================================================
+
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
 import type { CountryCode } from 'libphonenumber-js';
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -22,14 +24,13 @@ import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import {
   DEFAULT_PHONE_COUNTRY,
-  getPhoneCountryLabel,
   PHONE_COUNTRIES,
+  getPhoneCountryLabel,
 } from '@/constants/countries';
 import { formatPhoneInput, validatePhoneInput } from '@/utils/phone';
-import { profileError } from '@/utils/member-demo';
 
 // ===============================================================
-// REGISTRATION STATE AND SUBMISSION
+// MEMBER DETAILS
 // ===============================================================
 
 export default function RegisterScreen() {
@@ -44,99 +45,86 @@ export default function RegisterScreen() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+
   const selectedCountry = PHONE_COUNTRIES.find(
     (item) => item.code === country,
   )!;
 
   // ===============================================================
-  // VALIDATE AND SUBMIT REGISTRATION
+  // INPUT FORMATTING
+  // ===============================================================
+
+  function updatePhone(value: string) {
+    const formatted = formatPhoneInput(value, country);
+    const deletingSeparator =
+      value.length < phone.length && formatted === phone;
+    setPhone(deletingSeparator ? value : formatted);
+    setError('');
+  }
+
+  // ===============================================================
+  // REQUIRED MEMBER DETAILS & VALIDATION
   // ===============================================================
 
   async function handleRegister() {
     Keyboard.dismiss();
-    const cleanedFirstName = firstName.trim();
-    const cleanedSurname = surname.trim();
-    const cleanedEmail = email.trim();
-    if (
-      !cleanedFirstName ||
-      !cleanedSurname ||
-      !phone.trim() ||
-      !age.trim() ||
-      !cleanedEmail ||
-      !password
-    ) {
-      setError('Please fill in all fields.');
-      return;
-    }
-    const ageValue = age.trim();
-    const profileValidationError = profileError(
-      cleanedFirstName,
-      cleanedSurname,
-      ageValue,
-    );
-    if (profileValidationError) {
-      setError(profileValidationError);
-      return;
-    }
+    setCountryPickerOpen(false);
+
+    const tFirst = firstName.trim();
+    const tSurname = surname.trim();
+    const tEmail = email.trim();
+
+    if (!tFirst || !tSurname)
+      return setError('First name and surname are required.');
+
+    // Strict age validation (no decimals, no letters)
+    if (!/^\d+$/.test(age.trim()))
+      return setError('Age must be a whole number.');
+    const tAge = parseInt(age.trim(), 10);
+    if (tAge < 4)
+      return setError('You must be at least 4 years old to register.');
+
+    // Phone validation using Ire's utility
     const phoneResult = validatePhoneInput(phone, country);
-    if (!phoneResult.valid) {
-      setError(phoneResult.message);
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
-      setError('Enter a valid email address.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    if (!phoneResult.valid) return setError(phoneResult.message);
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tEmail))
+      return setError('Enter a valid email address.');
+    if (password.length < 6)
+      return setError('Password must be at least 6 characters.');
 
     setLoading(true);
     setError('');
-    setNotice('');
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: cleanedEmail,
+        email: tEmail,
         password: password,
         options: {
           data: {
-            // Keep submitted details available to the server-side profile
-            // trigger; this phone value is not treated as verified contact.
-            full_name: `${cleanedFirstName} ${cleanedSurname}`,
-            phone: phoneResult.internationalNumber,
-            age: age.trim(),
+            full_name: `${tFirst} ${tSurname}`,
+            phone: phoneResult.displayNumber,
+            age: tAge.toString(),
           },
         },
       });
 
       if (error) throw error;
 
-      const contactVerified = Boolean(
-        data.user?.email_confirmed_at || data.user?.phone_confirmed_at,
-      );
-      if (data.session && contactVerified) {
+      // ALPHA BEHAVIOR: We explicitly route to Home if a session is returned.
+      // This assumes email confirmation is disabled in the Supabase dashboard for the alpha.
+      if (data.session) {
         router.replace('/(tabs)/home');
       } else {
-        if (data.session) {
-          const { error: signOutError } = await supabase.auth.signOut();
-          if (signOutError) {
-            setError(
-              'Your account was created, but the unverified session could not be closed. Sign out, verify your email, then sign in again.',
-            );
-            return;
-          }
-        }
-        setNotice(
-          'Account created. Check your email and verify it before signing in.',
+        Alert.alert(
+          'Registration successful',
+          'Please check your email to verify your account, then sign in.',
+          [{ text: 'OK', onPress: () => router.push('/(auth)/login') }],
         );
       }
-    } catch {
-      setError(
-        'We could not create your account. Check the details and try again.',
-      );
+    } catch (err: any) {
+      // Mask raw server errors from the user and console
+      setError('Registration failed. Please check your details and try again.');
     } finally {
       setLoading(false);
     }
@@ -159,58 +147,52 @@ export default function RegisterScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             Create an account
           </Text>
-          <Text style={styles.description}>
-            Join the TPC community today. Email and password access is temporary
-            for this internal alpha; your phone number is collected but not
-            verified because phone OTP is not connected yet.
-          </Text>
-
-          {notice !== '' && (
-            <Text accessibilityLiveRegion="polite" style={styles.noticeText}>
-              {notice}
-            </Text>
-          )}
+          <Text style={styles.description}>Join the TPC community today.</Text>
 
           <Text style={styles.label}>First name</Text>
           <TextInput
+            accessibilityLabel="First name"
             style={styles.input}
             value={firstName}
             onChangeText={setFirstName}
             placeholder="First name"
-            accessibilityLabel="First name"
             placeholderTextColor={colors.secondaryText}
           />
 
           <Text style={styles.label}>Surname</Text>
           <TextInput
+            accessibilityLabel="Surname"
             style={styles.input}
             value={surname}
             onChangeText={setSurname}
             placeholder="Surname"
-            accessibilityLabel="Surname"
             placeholderTextColor={colors.secondaryText}
           />
 
           <Text style={styles.label}>Country</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Phone country: ${getPhoneCountryLabel(selectedCountry)}`}
-            onPress={() => setCountryPickerOpen((open) => !open)}
+            accessibilityState={{ expanded: countryPickerOpen }}
+            onPress={() => {
+              Keyboard.dismiss();
+              setCountryPickerOpen((o) => !o);
+            }}
             style={styles.countryButton}
           >
             <Text style={styles.countryText}>
               {getPhoneCountryLabel(selectedCountry)}
             </Text>
-            <Text style={styles.linkText}>
+            <Text style={styles.countryAction}>
               {countryPickerOpen ? 'Close' : 'Change'}
             </Text>
           </Pressable>
+
           {countryPickerOpen && (
             <View style={styles.pickerPanel}>
               <Picker
                 selectedValue={country}
-                onValueChange={(value) => {
-                  setCountry(value as CountryCode);
+                onValueChange={(c) => {
+                  setCountry(c);
                   setPhone('');
                 }}
                 style={styles.picker}
@@ -225,6 +207,7 @@ export default function RegisterScreen() {
                 ))}
               </Picker>
               <Pressable
+                accessibilityRole="button"
                 onPress={() => setCountryPickerOpen(false)}
                 style={styles.pickerDoneButton}
               >
@@ -232,45 +215,45 @@ export default function RegisterScreen() {
               </Pressable>
             </View>
           )}
+
           <Text style={styles.label}>Phone number</Text>
           <TextInput
+            accessibilityLabel="Phone number"
             style={styles.input}
             value={phone}
-            onChangeText={(value) => setPhone(formatPhoneInput(value, country))}
-            placeholder="e.g. 080 1234 5678"
+            onChangeText={updatePhone}
+            placeholder={country === 'NG' ? '0701 234 5678' : 'Phone number'}
             keyboardType="phone-pad"
-            autoComplete="tel"
-            accessibilityLabel="Phone number"
             placeholderTextColor={colors.secondaryText}
           />
 
           <Text style={styles.label}>Age</Text>
           <TextInput
+            accessibilityLabel="Age"
             style={styles.input}
             value={age}
             onChangeText={setAge}
-            placeholder="Your age"
+            placeholder="Age in years — 4 or above"
             keyboardType="number-pad"
             maxLength={3}
             placeholderTextColor={colors.secondaryText}
-            accessibilityLabel="Age in years"
           />
 
           <Text style={styles.label}>Email address</Text>
           <TextInput
+            accessibilityLabel="Email address"
             style={styles.input}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
             placeholderTextColor={colors.secondaryText}
-            accessibilityLabel="Email address"
           />
 
           <Text style={styles.label}>Password</Text>
           <TextInput
+            accessibilityLabel="Password"
             style={styles.input}
             value={password}
             onChangeText={setPassword}
@@ -278,7 +261,6 @@ export default function RegisterScreen() {
             secureTextEntry
             autoCapitalize="none"
             placeholderTextColor={colors.secondaryText}
-            accessibilityLabel="Password"
           />
 
           {error !== '' && (
@@ -288,6 +270,7 @@ export default function RegisterScreen() {
           )}
 
           <Pressable
+            accessibilityRole="button"
             onPress={handleRegister}
             disabled={loading}
             style={styles.button}
@@ -298,6 +281,7 @@ export default function RegisterScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
             onPress={() => router.push('/(auth)/login')}
             style={styles.switchButton}
           >
@@ -337,6 +321,38 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  countryButton: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    marginBottom: 24,
+  },
+  countryText: { flex: 1, fontSize: 16, color: colors.text },
+  countryAction: { fontSize: 14, fontWeight: '600', color: colors.link },
+  pickerPanel: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
+  picker: { width: '100%', color: colors.text },
+  pickerItem: { fontSize: 18, color: colors.text },
+  pickerDoneButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.decorativeBorder,
+  },
+  linkText: { fontSize: 16, fontWeight: '600', color: colors.link },
   input: {
     minHeight: 52,
     borderWidth: 1,
@@ -348,42 +364,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
   },
-  countryButton: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  countryText: { flexShrink: 1, color: colors.text, fontSize: 16 },
-  pickerPanel: {
-    borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  picker: { color: colors.text },
-  pickerItem: { color: colors.text },
-  pickerDoneButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   errorText: { color: colors.error, fontSize: 14, marginBottom: 12 },
-  noticeText: {
-    color: colors.success,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 16,
-  },
   button: {
     minHeight: 52,
     alignItems: 'center',
@@ -399,5 +380,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
   },
-  linkText: { fontSize: 16, fontWeight: '600', color: colors.link },
 });

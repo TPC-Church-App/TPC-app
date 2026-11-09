@@ -20,7 +20,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import BrandedLoader from '@/components/branded-loader';
 import {
   DEFAULT_PHONE_COUNTRY,
   PHONE_COUNTRIES,
@@ -28,34 +27,25 @@ import {
 } from '@/constants/countries';
 import { colors } from '@/constants/theme';
 import { formatPhoneInput } from '@/utils/phone';
-import { useDemoTransition } from '@/utils/use-demo-transition';
 import { supabase } from '@/lib/supabase';
 
 // ===============================================================
 // SIGN-IN FEEDBACK AND KEYBOARD SUPPORT
 // ===============================================================
 
-type ContactFeedback = {
-  message: string;
-  valid: boolean;
-};
+type ContactFeedback = { message: string; valid: boolean };
 
 // ===============================================================
 // MAP AUTH FAILURES TO SAFE, MEMBER-FACING MESSAGES
-// Avoid showing account identifiers or raw server responses.
 // ===============================================================
 
 function getSignInErrorMessage(code?: string) {
-  if (code === 'invalid_credentials') {
-    return 'Email or password is incorrect.';
-  }
-  if (code === 'email_not_confirmed') {
-    return 'Verify your email using the confirmation message, then sign in.';
-  }
-  if (code === 'over_request_rate_limit' || code === 'too_many_requests') {
-    return 'Too many attempts. Wait a little and try again.';
-  }
-  return 'We could not sign you in. Check your connection and try again.';
+  if (code === 'invalid_credentials') return 'Email or password is incorrect.';
+  if (code === 'email_not_confirmed')
+    return 'Verify your email using the confirmation message.';
+  if (code === 'over_request_rate_limit' || code === 'too_many_requests')
+    return 'Too many attempts. Wait and try again.';
+  return 'We could not sign you in. Check your connection.';
 }
 
 // ===============================================================
@@ -69,7 +59,7 @@ export default function LoginScreen() {
   const [country, setCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [feedback, setFeedback] = useState<ContactFeedback | null>(null);
-  const { phase, busy, start } = useDemoTransition();
+  const [loading, setLoading] = useState(false);
 
   const isPhone = method === 'phone';
   const selectedCountry = PHONE_COUNTRIES.find(
@@ -110,57 +100,56 @@ export default function LoginScreen() {
 
   // ===============================================================
   // CONTACT VALIDATION AND AUTH REQUEST
-  // Phone OTP is not connected here; email/password uses Supabase Auth.
   // ===============================================================
 
   async function validateContact() {
-    if (busy) return;
+    if (loading) return;
     Keyboard.dismiss();
     setCountryPickerOpen(false);
 
     if (isPhone) {
-      // Phone authentication is unavailable in this backend branch.
       setFeedback({
         valid: false,
-        message: 'Please switch to "Use email instead" to test the backend.',
+        message: 'Phone OTP is not connected. Use email.',
       });
       return;
-    } else {
-      const trimmed = contact.trim();
+    }
 
-      if (!trimmed) {
-        setFeedback({ valid: false, message: 'Enter your email address.' });
-        return;
-      }
+    const trimmed = contact.trim();
+    if (!trimmed)
+      return setFeedback({
+        valid: false,
+        message: 'Enter your email address.',
+      });
+    if (!password)
+      return setFeedback({ valid: false, message: 'Enter your password.' });
 
-      if (!password) {
-        setFeedback({ valid: false, message: 'Enter your password.' });
-        return;
-      }
+    setContact(trimmed);
+    setFeedback(null);
+    setLoading(true);
 
-      setContact(trimmed);
-      setFeedback(null);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
 
-      try {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: trimmed,
-          password,
-        });
-
-        if (error) {
-          setFeedback({
-            valid: false,
-            message: getSignInErrorMessage(error.code),
-          });
-        } else {
-          start(() => router.replace('/(tabs)/home'));
-        }
-      } catch {
+      if (error) {
         setFeedback({
           valid: false,
-          message: 'A connection problem stopped sign-in. Try again.',
+          message: getSignInErrorMessage(error.code),
         });
+        setLoading(false);
+      } else {
+        // Direct navigation without custom loaders
+        router.replace('/(tabs)/home');
       }
+    } catch (err: any) {
+      setFeedback({
+        valid: false,
+        message: 'Connection problem stopped sign-in. Try again.',
+      });
+      setLoading(false);
     }
   }
 
@@ -177,16 +166,14 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
         >
           <Text accessibilityRole="header" style={styles.title}>
             Welcome back
           </Text>
-
           <Text style={styles.description}>
             {isPhone
-              ? 'Phone OTP is not connected in this internal alpha. Switch to temporary email and password access.'
-              : 'Temporary internal alpha access uses email and password. Phone OTP is not connected yet.'}
+              ? 'Phone OTP is not connected. Switch to email.'
+              : 'Internal alpha access uses email and password.'}
           </Text>
 
           {isPhone && (
@@ -203,7 +190,6 @@ export default function LoginScreen() {
                   {countryPickerOpen ? 'Close' : 'Change'}
                 </Text>
               </Pressable>
-
               {countryPickerOpen && (
                 <View style={styles.pickerPanel}>
                   <Picker
@@ -248,7 +234,6 @@ export default function LoginScreen() {
             autoCorrect={false}
           />
 
-          {/* NEW: Password Input for Local Testing */}
           {!isPhone && (
             <>
               <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
@@ -274,10 +259,12 @@ export default function LoginScreen() {
 
           <Pressable
             onPress={validateContact}
-            disabled={busy}
+            disabled={loading}
             style={styles.enterButton}
           >
-            <Text style={styles.enterButtonText}>Enter</Text>
+            <Text style={styles.enterButtonText}>
+              {loading ? 'Signing in...' : 'Enter'}
+            </Text>
           </Pressable>
 
           {feedback && (
@@ -289,14 +276,6 @@ export default function LoginScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <BrandedLoader
-        visible={phase !== 'idle'}
-        success={phase === 'success'}
-        label={
-          phase === 'success' ? 'Login successful!' : 'Connecting to database…'
-        }
-      />
     </SafeAreaView>
   );
 }
