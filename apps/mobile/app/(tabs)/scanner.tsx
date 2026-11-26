@@ -1,29 +1,32 @@
 // ===============================================================
-// apps/mobile/app/(tabs)/scanner.tsx
-// Scan a service QR and request server-confirmed attendance.
+// File: apps/mobile/app/(tabs)/scanner.tsx
+// Description: Scan a service QR and request server-confirmed check-in with working back action.
+// Author: Josiah Ewumi
 // ===============================================================
-import { useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+
 import {
   CameraView,
   useCameraPermissions,
   type BarcodeScanningResult,
 } from 'expo-camera';
 import { router } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { Camera } from 'lucide-react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import BrandedLoader from '@/components/branded-loader';
 import MemberBackButton from '@/components/member-back-button';
+import BrandBackdrop from '@/components/ui/brand-backdrop';
+import GoldButton from '@/components/ui/gold-button';
+import SurfaceCard from '@/components/ui/surface-card';
+import { fonts, palette, radii } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import {
   getAttendanceCheckInErrorMessage,
   parseAttendanceCheckInResult,
   type AttendanceCheckInResult,
 } from '@/utils/attendance-check-in';
-
-// ===============================================================
-// CAMERA PERMISSION AND SCANNER STATE
-// ===============================================================
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -33,45 +36,57 @@ export default function ScannerScreen() {
   const [error, setError] = useState('');
   const scanLocked = useRef(false);
 
-  // ===============================================================
-  // CAMERA ACCESS
-  // ===============================================================
-
   if (!permission) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.permissionHeader}>
-          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
-        </View>
-        <Text style={styles.message}>Checking camera permission…</Text>
-      </SafeAreaView>
+      <BrandBackdrop>
+        <SafeAreaView style={styles.permissionScreen}>
+          <View style={styles.permissionHeader}>
+            <MemberBackButton
+              fallbackRoute="/(tabs)/attendance"
+              preferFallback
+            />
+          </View>
+          <View style={styles.permissionBody}>
+            <Text style={styles.permissionTitle}>Checking camera access…</Text>
+          </View>
+        </SafeAreaView>
+      </BrandBackdrop>
     );
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.permissionHeader}>
-          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
-        </View>
-        <Text style={styles.message}>
-          We need your permission to show the camera
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={requestPermission}
-          style={styles.permissionButton}
-        >
-          <Text style={styles.permissionButtonText}>Allow camera access</Text>
-        </Pressable>
-      </SafeAreaView>
+      <BrandBackdrop>
+        <SafeAreaView style={styles.permissionScreen}>
+          <View style={styles.permissionHeader}>
+            <MemberBackButton
+              fallbackRoute="/(tabs)/attendance"
+              preferFallback
+            />
+          </View>
+          <View style={styles.permissionBody}>
+            <SurfaceCard style={styles.permissionCard}>
+              <View style={styles.permissionIconCircle}>
+                <Camera size={28} color={palette.goldIcon} strokeWidth={1.8} />
+              </View>
+              <Text style={styles.permissionTitle}>
+                Camera Permission Needed
+              </Text>
+              <Text style={styles.permissionSubtitle}>
+                Allow TPC to use your camera so you can scan the service QR pass
+                at the auditorium.
+              </Text>
+              <GoldButton
+                label="Allow Camera Access"
+                onPress={() => void requestPermission()}
+                style={{ width: '100%', marginTop: 8 }}
+              />
+            </SurfaceCard>
+          </View>
+        </SafeAreaView>
+      </BrandBackdrop>
     );
   }
-
-  // ===============================================================
-  // VERIFY THE QR WITH THE AUTHENTICATED ATTENDANCE ENDPOINT
-  // A camera scan alone never records attendance.
-  // ===============================================================
 
   async function handleBarCodeScanned(scan: BarcodeScanningResult) {
     if (scanLocked.current || !scan.data.trim() || scan.data.length > 256)
@@ -127,10 +142,6 @@ export default function ScannerScreen() {
     setError('');
   }
 
-  // ===============================================================
-  // SCANNER INTERFACE
-  // ===============================================================
-
   return (
     <View style={styles.container}>
       <CameraView
@@ -144,19 +155,9 @@ export default function ScannerScreen() {
         }}
       />
 
-      <SafeAreaView
-        pointerEvents="box-none"
-        style={StyleSheet.absoluteFill}
-        edges={['top', 'left', 'right']}
-      >
-        <View pointerEvents="box-none" style={styles.scannerHeader}>
-          <MemberBackButton fallbackRoute="/(tabs)/attendance" />
-        </View>
-      </SafeAreaView>
-
-      {/* Dark overlay with a clear box in the middle */}
-      <View style={styles.overlay}>
-        <View style={styles.unfocusedContainer}></View>
+      {/* Non-interactive overlay rendered underneath the floating header */}
+      <View pointerEvents="none" style={styles.overlay}>
+        <View style={styles.unfocusedContainer} />
         <View style={styles.focusedContainer}>
           <View style={styles.borderTopLeft} />
           <View style={styles.borderTopRight} />
@@ -167,10 +168,26 @@ export default function ScannerScreen() {
           <Text style={styles.instructions}>
             {scanned
               ? 'Checking service QR…'
-              : 'Align QR code within the frame'}
+              : 'Align service QR code within the frame'}
           </Text>
         </View>
       </View>
+
+      {/* Top header placed last with high zIndex/elevation so Back is always tappable */}
+      <SafeAreaView
+        pointerEvents="box-none"
+        style={styles.scannerHeaderWrap}
+        edges={['top', 'left', 'right']}
+      >
+        <View pointerEvents="box-none" style={styles.scannerHeader}>
+          <MemberBackButton fallbackRoute="/(tabs)/attendance" preferFallback />
+          <View style={styles.scannerPill}>
+            <Text style={styles.scannerPillText}>Service Check-in</Text>
+          </View>
+          <View style={styles.headerSpacer} />
+        </View>
+      </SafeAreaView>
+
       {result && (
         <BrandedLoader
           visible
@@ -184,105 +201,147 @@ export default function ScannerScreen() {
           closeLabel="Continue scanning"
         >
           {!!result.serviceTitle && (
-            <Text style={styles.resultMessage}>{result.serviceTitle}</Text>
+            <Text style={styles.resultServiceTitle}>{result.serviceTitle}</Text>
           )}
         </BrandedLoader>
       )}
+
       {!!error && (
         <View style={styles.resultBackdrop}>
-          <View style={styles.resultCard}>
+          <SurfaceCard style={styles.resultCard}>
             <Text accessibilityRole="header" style={styles.resultTitle}>
-              Check-in not confirmed
+              Check-in Not Confirmed
             </Text>
             <Text accessibilityLiveRegion="polite" style={styles.resultMessage}>
               {error}
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <GoldButton
+              label="Try Again"
               onPress={resetScanner}
-              style={styles.resultButton}
-            >
-              <Text style={styles.resultButtonText}>Try again</Text>
-            </Pressable>
+              style={{ marginTop: 18 }}
+            />
             <Pressable
               accessibilityRole="button"
               onPress={() => router.replace('/(tabs)/attendance')}
               style={styles.resultLinkButton}
             >
-              <Text style={styles.resultLinkText}>Return to attendance</Text>
+              <Text style={styles.resultLinkText}>Return to Attendance</Text>
             </Pressable>
-          </View>
+          </SurfaceCard>
         </View>
       )}
+
       <BrandedLoader visible={loading} label="Confirming your attendance…" />
     </View>
   );
 }
-
-// ===============================================================
-// SCANNER STYLES
-// ===============================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
   },
-  message: {
-    textAlign: 'center',
-    paddingBottom: 10,
-    color: '#fff',
-    marginTop: 50,
+  permissionScreen: {
+    flex: 1,
   },
   permissionHeader: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  scannerHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 10,
     alignItems: 'flex-start',
   },
-  permissionButton: {
-    minHeight: 48,
-    alignSelf: 'center',
+  permissionBody: {
+    flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    padding: 24,
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
   },
-  permissionButtonText: {
-    color: colors.onPrimary,
-    fontSize: 16,
-    fontWeight: '700',
+  permissionCard: {
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
   },
-  overlay: {
+  permissionIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: palette.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permissionTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    color: palette.textPrimary,
+    textAlign: 'center',
+  },
+  permissionSubtitle: {
+    fontFamily: fonts.regular,
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: palette.textSecondary,
+    textAlign: 'center',
+  },
+  scannerHeaderWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 20,
+    elevation: 20,
+  },
+  scannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  scannerPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(19, 27, 46, 0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  scannerPillText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
+    color: palette.surface,
+  },
+  headerSpacer: {
+    width: 42,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     bottom: 0,
+    left: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   unfocusedContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(19, 27, 46, 0.62)',
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   focusedContainer: {
-    width: 250,
-    height: 250,
+    width: 256,
+    height: 256,
     backgroundColor: 'transparent',
     position: 'relative',
   },
   instructions: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 20,
+    fontFamily: fonts.semiBold,
+    color: palette.surface,
+    fontSize: 15,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   resultBackdrop: {
     position: 'absolute',
@@ -290,42 +349,36 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
+    zIndex: 30,
+    elevation: 30,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(19, 27, 46, 0.72)',
   },
   resultCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 400,
     padding: 24,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
   },
   resultTitle: {
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: '700',
-    color: colors.text,
+    fontFamily: fonts.bold,
+    fontSize: 21,
+    lineHeight: 28,
+    color: palette.textPrimary,
   },
   resultMessage: {
-    marginTop: 12,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.secondaryText,
+    marginTop: 8,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    lineHeight: 22,
+    color: palette.textSecondary,
   },
-  resultButton: {
-    minHeight: 48,
-    marginTop: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  resultButtonText: {
-    color: colors.onPrimary,
+  resultServiceTitle: {
+    marginTop: 8,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    fontWeight: '700',
+    color: palette.textPrimary,
   },
   resultLinkButton: {
     minHeight: 44,
@@ -334,48 +387,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   resultLinkText: {
-    color: colors.link,
-    fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fonts.semiBold,
+    color: palette.goldText,
+    fontSize: 14.5,
   },
   borderTopLeft: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderTopWidth: 4,
     borderLeftWidth: 4,
-    borderColor: colors.primary,
+    borderTopLeftRadius: 12,
+    borderColor: palette.gold,
   },
   borderTopRight: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderTopWidth: 4,
     borderRightWidth: 4,
-    borderColor: colors.primary,
+    borderTopRightRadius: 12,
+    borderColor: palette.gold,
   },
   borderBottomLeft: {
     position: 'absolute',
     bottom: 0,
     left: 0,
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
-    borderColor: colors.primary,
+    borderBottomLeftRadius: 12,
+    borderColor: palette.gold,
   },
   borderBottomRight: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderBottomWidth: 4,
     borderRightWidth: 4,
-    borderColor: colors.primary,
+    borderBottomRightRadius: 12,
+    borderColor: palette.gold,
   },
 });

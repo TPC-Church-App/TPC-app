@@ -1,6 +1,7 @@
 // ===============================================================
-// apps/mobile/app/index.tsx
-// Display church branding and provide registration/sign-in entry.
+// File: apps/mobile/app/index.tsx
+// Description: Branded Warm Ivory & Gold welcome screen for TPC.
+// Author: Josiah Ewumi
 // ===============================================================
 
 import { router } from 'expo-router';
@@ -14,14 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '@/constants/theme';
+import BrandBackdrop from '@/components/ui/brand-backdrop';
+import GoldButton from '@/components/ui/gold-button';
+import { fonts, palette, shadows } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
-
-// ===============================================================
-// BRANDED OPENING SCREEN
-// Preserve the logo's proportions and keep navigation explicit.
-// The circles are decorative rather than loading indicators.
-// ===============================================================
 
 export default function WelcomeScreen() {
   const { setEntryMode } = useMemberDraft();
@@ -37,108 +34,105 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.brand}>
-          <View style={styles.outerRing}>
-            <View style={styles.innerRing}>
-              <View style={styles.logoFrame}>
-                <Image
-                  source={require('../assets/light/church-logo.png')}
-                  style={styles.logo}
-                  resizeMode="contain"
-                  accessibilityLabel="The Pentecostal Congregation logo"
-                />
+    <BrandBackdrop>
+      <SafeAreaView style={styles.screen}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brand}>
+            <View style={styles.outerRing}>
+              <View style={styles.innerRing}>
+                <View style={[styles.logoFrame, shadows.card]}>
+                  <Image
+                    source={require('../assets/light/church-logo-transparent.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
+                    accessibilityLabel="The Pentecostal Congregation logo"
+                  />
+                </View>
               </View>
             </View>
+
+            <Text accessibilityRole="header" style={styles.title}>
+              The Pentecostal{'\n'}Congregation
+            </Text>
+
+            <Text style={styles.tagline}>
+              A place to belong. A faith to live.
+            </Text>
           </View>
 
-          <Text accessibilityRole="header" style={styles.title}>
-            TPC
-          </Text>
+          <View style={styles.footer}>
+            <GoldButton label="Get Started" onPress={startRegistration} />
 
-          <Text style={styles.tagline}>
-            A place to belong. A faith to live.
-          </Text>
-        </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={startSignIn}
+              style={({ pressed }) => [
+                styles.signInButton,
+                pressed && styles.signInPressed,
+              ]}
+            >
+              <Text style={styles.signInMuted}>Already have an account? </Text>
+              <Text style={styles.signInGold}>Sign In</Text>
+            </Pressable>
 
-        <View style={styles.footer}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={startRegistration}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.buttonText}>Get started</Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={startSignIn}
-            style={({ pressed }) => [
-              styles.signInButton,
-              pressed && styles.signInPressed,
-            ]}
-          >
-            <Text style={styles.signInText}>Already registered? Sign in</Text>
-          </Pressable>
-
-          <Text style={styles.motto}>FAITH · FAMILY · PURPOSE</Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            <Text style={styles.motto}>FAITH · FAMILY · PURPOSE</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </BrandBackdrop>
   );
 }
-
-// ===============================================================
-// SCREEN STYLES
-// Use open space, fine circular borders and the church palette.
-// ===============================================================
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     flexGrow: 1,
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingVertical: 28,
     alignItems: 'center',
   },
   brand: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 32,
     width: '100%',
   },
   outerRing: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: 236,
+    height: 236,
+    borderRadius: 118,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
+    borderColor: palette.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.28)',
   },
   innerRing: {
-    width: 212,
-    height: 212,
-    borderRadius: 106,
+    width: 204,
+    height: 204,
+    borderRadius: 102,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
+    borderColor: palette.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoFrame: {
-    width: 184,
-    height: 184,
-    borderRadius: 92,
-    overflow: 'hidden',
-    backgroundColor: colors.surface,
+    width: 172,
+    height: 172,
+    borderRadius: 86,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 22,
   },
   logo: {
     width: '100%',
@@ -146,64 +140,55 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 28,
-    fontSize: 40,
-    lineHeight: 50,
-    fontWeight: '700',
-    color: colors.text,
+    fontFamily: fonts.extraBold,
+    fontSize: 28,
+    lineHeight: 35,
+    textAlign: 'center',
+    color: palette.inkNavy,
+    letterSpacing: -0.4,
   },
   tagline: {
     marginTop: 10,
-    fontSize: 15,
+    fontFamily: fonts.regular,
+    fontSize: 15.5,
     lineHeight: 23,
     textAlign: 'center',
-    color: colors.secondaryText,
+    color: palette.textSecondary,
   },
   footer: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
     alignItems: 'center',
-    paddingTop: 24,
-  },
-  button: {
-    width: '100%',
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  buttonPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onPrimary,
+    paddingTop: 20,
   },
   signInButton: {
     minHeight: 48,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
-    marginTop: 8,
+    marginTop: 12,
   },
   signInPressed: {
     opacity: 0.7,
   },
-  signInText: {
-    color: colors.link,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
+  signInMuted: {
+    fontFamily: fonts.regular,
+    fontSize: 14.5,
+    color: palette.textPrimary,
+  },
+  signInGold: {
+    fontFamily: fonts.bold,
+    fontSize: 14.5,
+    color: palette.goldText,
   },
   motto: {
-    marginTop: 24,
+    marginTop: 20,
+    fontFamily: fonts.semiBold,
     fontSize: 11,
-    lineHeight: 18,
-    letterSpacing: 1.5,
+    lineHeight: 16,
+    letterSpacing: 1.8,
     textAlign: 'center',
-    color: colors.secondaryText,
+    color: palette.textMuted,
   },
 });

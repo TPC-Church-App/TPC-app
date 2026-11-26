@@ -1,3 +1,9 @@
+// ===============================================================
+// File: apps/mobile/lib/supabase.ts
+// Description: Supabase client configured for mobile Auth (PKCE + AsyncStorage).
+// Author: Josiah Ewumi
+// ===============================================================
+
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +16,7 @@ const supabaseAnonKey =
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
+    flowType: 'pkce',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

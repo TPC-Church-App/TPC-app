@@ -1,9 +1,11 @@
 // ===============================================================
-// apps/mobile/components/member-menu.tsx
-// Shared member menu. Home remains the member dashboard.
+// File: apps/mobile/components/member-menu.tsx
+// Description: Shared member navigation drawer/modal in Warm Ivory & Gold UI.
+// Author: Josiah Ewumi
 // ===============================================================
 
 import { router } from 'expo-router';
+import { ChevronRight, Menu, X } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Modal,
@@ -15,13 +17,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import SurfaceCard from '@/components/ui/surface-card';
 import { MEMBER_PAGES, MEMBER_ROUTES } from '@/constants/member-pages';
-import { colors } from '@/constants/theme';
+import { fonts, palette, radii, shadows } from '@/constants/theme';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
-
-// ===============================================================
-// MEMBER MENU DESTINATIONS
-// ===============================================================
 
 const MENU_ITEMS = [
   { key: 'home', title: 'Home / Dashboard' },
@@ -31,10 +30,6 @@ const MENU_ITEMS = [
     title: page.title,
   })),
 ];
-
-// ===============================================================
-// MENU STATE AND NAVIGATION
-// ===============================================================
 
 export default function MemberMenu() {
   const [visible, setVisible] = useState(false);
@@ -54,9 +49,14 @@ export default function MemberMenu() {
         accessibilityLabel="Open member menu"
         accessibilityState={{ expanded: visible }}
         onPress={() => setVisible(true)}
-        style={({ pressed }) => [styles.trigger, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.trigger,
+          shadows.card,
+          pressed && styles.pressed,
+        ]}
       >
-        <Text style={styles.link}>Menu ☰</Text>
+        <Menu size={17} color={palette.goldText} strokeWidth={2.1} />
+        <Text style={styles.link}>Menu</Text>
       </Pressable>
 
       <Modal
@@ -74,41 +74,42 @@ export default function MemberMenu() {
           />
 
           <SafeAreaView style={styles.safeArea} pointerEvents="box-none">
-            <ScrollView
-              style={styles.panel}
-              contentContainerStyle={styles.panelContent}
-              accessibilityViewIsModal
-            >
-              <View style={styles.heading}>
-                <Text accessibilityRole="header" style={styles.title}>
-                  Explore TPC
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setVisible(false)}
-                  style={styles.close}
-                >
-                  <Text style={styles.link}>Close</Text>
-                </Pressable>
-              </View>
-
-              {MENU_ITEMS.map((item) => (
-                <Pressable
-                  key={item.key}
-                  accessibilityRole="button"
-                  onPress={() => openPage(item.key)}
-                  style={({ pressed }) => [
-                    styles.item,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.itemText}>{item.title}</Text>
-                  <Text accessible={false} style={styles.link}>
-                    ›
+            <SurfaceCard style={styles.panel}>
+              <ScrollView
+                contentContainerStyle={styles.panelContent}
+                accessibilityViewIsModal
+              >
+                <View style={styles.heading}>
+                  <Text accessibilityRole="header" style={styles.title}>
+                    Explore TPC
                   </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close menu"
+                    onPress={() => setVisible(false)}
+                    style={styles.close}
+                  >
+                    <X size={20} color={palette.textSecondary} />
+                  </Pressable>
+                </View>
+
+                {MENU_ITEMS.map((item, idx) => (
+                  <Pressable
+                    key={item.key}
+                    accessibilityRole="button"
+                    onPress={() => openPage(item.key)}
+                    style={({ pressed }) => [
+                      styles.item,
+                      idx > 0 && styles.itemDivider,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.itemText}>{item.title}</Text>
+                    <ChevronRight size={18} color={palette.goldText} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </SurfaceCard>
           </SafeAreaView>
         </View>
       </Modal>
@@ -116,37 +117,34 @@ export default function MemberMenu() {
   );
 }
 
-// ===============================================================
-// MEMBER MENU STYLES
-// ===============================================================
-
 const styles = StyleSheet.create({
   trigger: {
-    minHeight: 44,
+    minHeight: 42,
     paddingHorizontal: 14,
-    justifyContent: 'center',
-    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    backgroundColor: colors.surface,
+    borderColor: palette.borderSubtle,
+    backgroundColor: palette.surface,
   },
   link: {
-    color: colors.link,
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: '600',
+    fontFamily: fonts.semiBold,
+    color: palette.goldText,
+    fontSize: 14,
   },
-  pressed: { opacity: 0.65 },
-  overlay: { flex: 1, backgroundColor: 'rgba(48,45,41,0.35)' },
-  safeArea: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  overlay: { flex: 1, backgroundColor: 'rgba(19, 27, 46, 0.42)' },
+  safeArea: { flex: 1, justifyContent: 'center' },
   panel: {
-    flexGrow: 0,
     margin: 20,
     alignSelf: 'center',
     width: '90%',
-    maxWidth: 480,
-    borderRadius: 20,
-    backgroundColor: colors.background,
+    maxWidth: 440,
+    maxHeight: '82%',
+    backgroundColor: palette.canvas,
+    overflow: 'hidden',
   },
   panelContent: { padding: 20 },
   heading: {
@@ -154,34 +152,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   title: {
     flexShrink: 1,
-    fontSize: 22,
-    lineHeight: 31,
-    fontWeight: '700',
-    color: colors.text,
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    color: palette.inkNavy,
   },
   close: {
-    minHeight: 44,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
   },
   item: {
-    minHeight: 52,
-    paddingVertical: 14,
+    minHeight: 50,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.decorativeBorder,
+  },
+  itemDivider: {
+    borderTopWidth: 1,
+    borderTopColor: palette.borderSubtle,
   },
   itemText: {
     flex: 1,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.text,
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: palette.textPrimary,
   },
 });

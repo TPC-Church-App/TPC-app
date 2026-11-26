@@ -1,9 +1,10 @@
 // ===============================================================
-// apps/mobile/components/branded-loader.tsx
-// Reusable TPC loading screen.
-// Its parent controls visibility; no artificial waiting is added.
+// File: apps/mobile/components/branded-loader.tsx
+// Description: Reusable TPC branded loading screen with ivory backdrop and gold halo.
+// Author: Josiah Ewumi
 // ===============================================================
 
+import { Check, AlertCircle } from 'lucide-react-native';
 import { useEffect, useRef, type ReactNode } from 'react';
 import {
   Animated,
@@ -19,12 +20,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '@/constants/theme';
+import BrandBackdrop from '@/components/ui/brand-backdrop';
+import { colors, fonts, palette, radii, shadows } from '@/constants/theme';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
-
-// ===============================================================
-// LOADER INPUTS
-// ===============================================================
 
 type BrandedLoaderProps = {
   visible: boolean;
@@ -37,10 +35,6 @@ type BrandedLoaderProps = {
   closeLabel?: string;
   children?: ReactNode;
 };
-
-// ===============================================================
-// LOADER ANIMATION AND RESULT STATES
-// ===============================================================
 
 export default function BrandedLoader({
   visible,
@@ -55,28 +49,51 @@ export default function BrandedLoader({
 }: BrandedLoaderProps) {
   const reducedMotion = useReducedMotion();
   const rotation = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     rotation.setValue(0);
+    pulse.setValue(1);
 
     if (!visible || reducedMotion || success || complete || error) return;
 
-    const animation = Animated.loop(
+    const spinAnim = Animated.loop(
       Animated.timing(rotation, {
         toValue: 1,
-        duration: 1200,
+        duration: 1400,
         easing: Easing.linear,
         useNativeDriver: Platform.OS !== 'web',
         isInteraction: false,
       }),
     );
 
-    animation.start();
+    const pulseAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.05,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+          isInteraction: false,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+          isInteraction: false,
+        }),
+      ]),
+    );
+
+    spinAnim.start();
+    pulseAnim.start();
 
     return () => {
-      animation.stop();
+      spinAnim.stop();
+      pulseAnim.stop();
     };
-  }, [visible, reducedMotion, success, complete, error, rotation]);
+  }, [visible, reducedMotion, success, complete, error, rotation, pulse]);
 
   if (!visible) return null;
 
@@ -86,66 +103,87 @@ export default function BrandedLoader({
   });
 
   const content = (
-    <SafeAreaView style={[styles.screen, inline && { minHeight: 540 }]}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <View style={styles.brand}>
-          <Animated.View
-            accessible={false}
-            style={[
-              styles.ring,
-              success && styles.successRing,
-              error && {
-                borderColor: colors.error,
-                borderTopColor: colors.error,
-                borderRightColor: colors.error,
-              },
-              { transform: [{ rotate }] },
-            ]}
-          />
-          <Image
-            source={require('../assets/light/church-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityLabel="The Pentecostal Congregation logo"
-          />
-        </View>
+    <BrandBackdrop style={inline ? { minHeight: 540 } : undefined}>
+      <SafeAreaView style={styles.screen}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+        >
+          <View style={styles.brand}>
+            <Animated.View
+              accessible={false}
+              style={[styles.outerHalo, { transform: [{ scale: pulse }] }]}
+            />
+            <Animated.View
+              accessible={false}
+              style={[
+                styles.ring,
+                success && styles.successRing,
+                error && styles.errorRing,
+                { transform: [{ rotate }] },
+              ]}
+            />
+            <View style={[styles.logoSurface, shadows.card]}>
+              <Image
+                source={require('../assets/light/church-logo-transparent.png')}
+                style={styles.logo}
+                resizeMode="contain"
+                accessibilityLabel="The Pentecostal Congregation logo"
+              />
+            </View>
+          </View>
 
-        <Text accessibilityRole="header" style={styles.title}>
-          TPC
-        </Text>
-        <Text accessibilityLiveRegion="polite" style={styles.label}>
-          {label}
-        </Text>
-
-        {children}
-
-        {success && (
-          <Text accessibilityLabel="Success" style={styles.successTick}>
-            ✓
+          <Text accessibilityRole="header" style={styles.churchWordmark}>
+            The Pentecostal{'\n'}Congregation
           </Text>
-        )}
 
-        {error && (
-          <Text
-            accessibilityLabel="Action needs attention"
-            style={[styles.successTick, { color: colors.error }]}
-          >
-            !
+          <Text accessibilityLiveRegion="polite" style={styles.label}>
+            {label}
           </Text>
-        )}
 
-        {onClose && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={onClose}
-            style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          >
-            <Text style={styles.buttonText}>{closeLabel}</Text>
-          </Pressable>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          {children}
+
+          {success && (
+            <View
+              accessibilityLabel="Success"
+              style={[
+                styles.statusBadge,
+                { backgroundColor: palette.successSoft },
+              ]}
+            >
+              <Check size={24} color={colors.success} strokeWidth={2.5} />
+            </View>
+          )}
+
+          {error && (
+            <View
+              accessibilityLabel="Action needs attention"
+              style={[
+                styles.statusBadge,
+                { backgroundColor: palette.errorSoft },
+              ]}
+            >
+              <AlertCircle size={24} color={colors.error} strokeWidth={2.2} />
+            </View>
+          )}
+
+          {onClose && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.buttonText}>{closeLabel}</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </BrandBackdrop>
   );
+
   return inline ? (
     content
   ) : (
@@ -159,14 +197,9 @@ export default function BrandedLoader({
   );
 }
 
-// ===============================================================
-// LOADER STYLES
-// ===============================================================
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scroll: { flex: 1 },
   content: {
@@ -176,65 +209,90 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brand: {
-    width: 156,
-    height: 156,
+    width: 172,
+    height: 172,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  outerHalo: {
+    position: 'absolute',
+    width: 172,
+    height: 172,
+    borderRadius: 86,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
   ring: {
     position: 'absolute',
-    width: 156,
-    height: 156,
-    borderRadius: 78,
-    borderWidth: 4,
-    borderColor: colors.decorativeBorder,
-    borderTopColor: colors.primary,
-    borderRightColor: colors.primaryPressed,
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    borderWidth: 3.5,
+    borderColor: palette.borderSubtle,
+    borderTopColor: palette.gold,
+    borderRightColor: palette.goldDark,
+  },
+  logoSurface: {
+    width: 122,
+    height: 122,
+    borderRadius: 61,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
   },
   logo: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
-    backgroundColor: colors.surface,
+    width: '100%',
+    height: '100%',
   },
   successRing: {
     borderColor: colors.success,
     borderTopColor: colors.success,
     borderRightColor: colors.success,
   },
-  successTick: {
-    marginTop: 16,
-    fontSize: 44,
-    lineHeight: 56,
-    fontWeight: '700',
-    color: colors.success,
+  errorRing: {
+    borderColor: colors.error,
+    borderTopColor: colors.error,
+    borderRightColor: colors.error,
   },
-  title: {
-    marginTop: 24,
-    fontSize: 32,
-    lineHeight: 42,
-    fontWeight: '800',
-    color: colors.text,
+  churchWordmark: {
+    marginTop: 22,
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    lineHeight: 26,
+    textAlign: 'center',
+    color: palette.inkNavy,
+    letterSpacing: -0.2,
   },
   label: {
-    marginTop: 8,
-    fontSize: 16,
-    lineHeight: 24,
+    marginTop: 10,
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    color: colors.secondaryText,
+    color: palette.textSecondary,
+  },
+  statusBadge: {
+    marginTop: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   button: {
     minHeight: 48,
     marginTop: 24,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    borderRadius: radii.pill,
+    backgroundColor: palette.gold,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onPrimary,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: palette.surface,
   },
-  pressed: { opacity: 0.65 },
+  pressed: { opacity: 0.72 },
 });
