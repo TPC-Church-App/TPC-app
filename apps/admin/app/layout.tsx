@@ -1,13 +1,12 @@
-// apps/admin/app/layout.tsx
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "TPC Admin",
-  description: "Admin portal for The Pentecostal Congregation",
+  title: 'TPC Admin',
+  description: 'Admin portal for The Pentecostal Congregation',
 };
 
 export default function RootLayout({
