@@ -1,11 +1,11 @@
 // apps/admin/app/dashboard/members/page.tsx
 import { createClient } from '@/utils/supabase/server'
-import { UserCheck, Shield } from 'lucide-react'
+import { UserCheck } from 'lucide-react'
+import RoleSelector from './role-selector'
 
 export default async function MembersPage() {
   const supabase = await createClient()
 
-  // Fetch all profiles ordered by newest first
   const { data: members, error } = await supabase
     .from('profiles')
     .select('*')
@@ -34,9 +34,8 @@ export default async function MembersPage() {
             <tr className="bg-gray-50 text-gray-600 text-sm border-b">
               <th className="p-4 font-medium">Name</th>
               <th className="p-4 font-medium">Phone</th>
-              <th className="p-4 font-medium">Role</th>
               <th className="p-4 font-medium">Status</th>
-              <th className="p-4 font-medium text-right">Actions</th>
+              <th className="p-4 font-medium w-48">Change Role</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -48,27 +47,15 @@ export default async function MembersPage() {
                 </td>
                 <td className="p-4 text-gray-600">{member.phone || 'N/A'}</td>
                 <td className="p-4">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold uppercase
-                    ${member.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : 
-                      member.role === 'pastor' ? 'bg-blue-100 text-blue-700' : 
-                      member.role === 'usher' ? 'bg-orange-100 text-orange-700' : 
-                      member.role === 'finance' ? 'bg-green-100 text-green-700' : 
-                      'bg-gray-100 text-gray-700'}`}>
-                    <Shield size={12} />
-                    {member.role.replace('_', ' ')}
-                  </span>
-                </td>
-                <td className="p-4">
                   {member.is_verified ? (
                     <span className="text-green-600 text-sm font-medium">Verified</span>
                   ) : (
                     <span className="text-yellow-600 text-sm font-medium">Pending</span>
                   )}
                 </td>
-                <td className="p-4 text-right">
-                  <button className="text-sm font-medium text-[#C9A24A] hover:text-[#B08E3E]">
-                    Edit Role
-                  </button>
+                <td className="p-4">
+                  {/* Replace the button with the interactive dropdown */}
+                  <RoleSelector userId={member.id} currentRole={member.role} />
                 </td>
               </tr>
             ))}
