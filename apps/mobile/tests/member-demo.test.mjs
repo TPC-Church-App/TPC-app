@@ -349,11 +349,12 @@ test('auxiliary routes are hidden without consuming visible tab slots', async ()
     'utf8',
   );
   assert.match(layout, /tabBarItemStyle:\s*\{\s*display:\s*'none'/);
+  for (const name of ['home', 'attendance', 'giving', 'profile']) {
+    assert.match(layout, new RegExp(`name="${name}"`));
+  }
   for (const name of [
-    'attendance',
     'checkout',
     'community',
-    'giving',
     'history',
     'messages',
     'more',

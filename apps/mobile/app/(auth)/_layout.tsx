@@ -1,27 +1,25 @@
 // ===============================================================
-// apps/mobile/app/(auth)/_layout.tsx
-// Configure shared navigation for registration and sign-in screens.
+// File: apps/mobile/app/(auth)/_layout.tsx
+// Description: Full-bleed Warm Ivory stack for auth & onboarding screens.
+// Author: Josiah Ewumi
 // ===============================================================
 
 import { Stack } from 'expo-router';
-import { colors } from '@/constants/theme';
 
-// ===============================================================
-// AUTHENTICATION NAVIGATION STACK
-// ===============================================================
+import { colors } from '@/constants/theme';
 
 export default function AuthLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: colors.surface },
-        headerTintColor: colors.link,
-        headerTitleStyle: { color: colors.text },
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="login" options={{ title: 'Sign In' }} />
-      <Stack.Screen name="register" options={{ title: 'Register' }} />
-      <Stack.Screen name="otp" options={{ title: 'Verification' }} />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+      <Stack.Screen name="complete-profile" />
+      <Stack.Screen name="otp" />
     </Stack>
   );
 }

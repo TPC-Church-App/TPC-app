@@ -1,13 +1,13 @@
 // ===============================================================
-// apps/mobile/components/profile-photo.tsx
-// Choose a local profile image without uploading it.
-// Native selections are copied out of the temporary picker cache.
+// File: apps/mobile/components/profile-photo.tsx
+// Description: Reliable profile photo picker with persistent local storage.
+// Author: Josiah Ewumi
 // ===============================================================
 
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { File, Paths } from 'expo-file-system';
+import { Camera, Trash2, User } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   Platform,
@@ -17,22 +17,58 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { colors, fonts, palette, radii, shadows } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import {
+  getStoredProfilePhoto,
+  persistPickedPhoto,
+  saveStoredProfilePhoto,
+} from '@/services/profile-photo-storage';
 import { useMemberDraft } from '@/store/member-draft';
 
-// ===============================================================
-// PHOTO STATE AND STALE RESULT GUARDS
-// ===============================================================
-
-export default function ProfilePhoto() {
+export default function ProfilePhoto({
+  initials,
+  onPhotoChanged,
+}: {
+  initials?: string;
+  onPhotoChanged?: (uri: string | null) => void;
+}) {
   const { draft, updateDraft, sessionToken, isCurrentSession } =
     useMemberDraft();
   const mounted = useRef(false);
   const generation = useRef(0);
   const lock = useRef(false);
-  const latestPhoto = useRef(draft.photoUri);
-  latestPhoto.current = draft.photoUri;
-  const renderToken = sessionToken();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [persistedUri, setPersistedUri] = useState<string | null>(null);
+  const [showOptions, setShowOptions] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+
+  const activePhotoUri = persistedUri ?? draft.photoUri;
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (!active) return;
+        const uid = data.session?.user?.id ?? null;
+        setUserId(uid);
+        const stored = await getStoredProfilePhoto(uid);
+        if (active && stored) {
+          setPersistedUri(stored);
+          if (draft.photoUri !== stored) {
+            updateDraft({ photoUri: stored });
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [draft.photoUri, updateDraft]);
+
   useFocusEffect(
     useCallback(() => {
       mounted.current = true;
@@ -45,13 +81,6 @@ export default function ProfilePhoto() {
       };
     }, []),
   );
-  const [showOptions, setShowOptions] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  // ===============================================================
-  // SELECT AND COPY A LOCAL PHOTO
-  // ===============================================================
 
   async function choosePhoto() {
     if (lock.current) return;
@@ -65,51 +94,62 @@ export default function ProfilePhoto() {
 
     setBusy(true);
     setError('');
+    setStatusMessage('');
 
     try {
+      if (Platform.OS !== 'web') {
+        const permission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          if (current()) {
+            setError(
+              'Photo library permission is needed to choose a profile image.',
+            );
+          }
+          return;
+        }
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: false,
-        allowsMultipleSelection: false,
-        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.75,
         exif: false,
-        base64: false,
+        base64: true,
+      });
+
+      if (!current() || result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset?.uri) {
+        setError('That photo could not be opened. Choose another image.');
+        return;
+      }
+
+      const saved = await persistPickedPhoto({
+        uri: asset.uri,
+        base64: asset.base64,
+        fileSize: asset.fileSize,
       });
 
       if (!current()) return;
-      if (!result.canceled) {
-        const uri = result.assets[0]?.uri;
-
-        if (uri) {
-          if (Platform.OS === 'web') {
-            updateDraft({ photoUri: uri });
-          } else {
-            const source = new File(uri);
-            if (source.size > 8 * 1024 * 1024) {
-              setError('Choose a photo smaller than 8 MB.');
-              return;
-            }
-            const target = new File(
-              Paths.document,
-              'tpc-profile-' + Date.now() + '.jpg',
-            );
-            source.copy(target);
-            if (!current()) {
-              target.delete();
-              return;
-            }
-            updateDraft({ photoUri: target.uri });
-          }
-          setShowOptions(false);
-        } else {
-          setError('That photo could not be opened. Choose another image.');
-        }
+      if (!saved.ok) {
+        setError(saved.message);
+        return;
       }
+
+      await saveStoredProfilePhoto(userId, saved.uri);
+      setPersistedUri(saved.uri);
+      updateDraft({ photoUri: saved.uri });
+      onPhotoChanged?.(saved.uri);
+      setShowOptions(false);
+      setStatusMessage('Profile photo saved.');
     } catch {
-      if (current())
+      if (current()) {
         setError(
           'The photo chooser could not open or save. Please try another image.',
         );
+      }
     } finally {
       if (current()) {
         setBusy(false);
@@ -118,19 +158,16 @@ export default function ProfilePhoto() {
     }
   }
 
-  // ===============================================================
-  // REMOVE THE CURRENT PHOTO SELECTION
-  // ===============================================================
-
-  function removePhoto() {
-    updateDraft({ photoUri: null });
+  async function removePhoto() {
     setError('');
+    setStatusMessage('');
+    await saveStoredProfilePhoto(userId, null);
+    setPersistedUri(null);
+    updateDraft({ photoUri: null });
+    onPhotoChanged?.(null);
     setShowOptions(false);
+    setStatusMessage('Profile photo removed.');
   }
-
-  // ===============================================================
-  // PROFILE PHOTO CONTROLS
-  // ===============================================================
 
   return (
     <View style={styles.container}>
@@ -139,36 +176,42 @@ export default function ProfilePhoto() {
         accessibilityLabel="Change profile photo"
         accessibilityState={{ expanded: showOptions, disabled: busy }}
         disabled={busy}
-        onPress={() => setShowOptions((current) => !current)}
-        style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
+        onPress={() => {
+          setStatusMessage('');
+          setShowOptions((current) => !current);
+        }}
+        style={({ pressed }) => [styles.avatarWrap, pressed && styles.pressed]}
       >
-        {draft.photoUri ? (
-          <Image
-            source={{ uri: draft.photoUri }}
-            style={styles.image}
-            resizeMode="cover"
-            accessibilityLabel="Selected profile photo"
-            onError={() => {
-              if (
-                !mounted.current ||
-                !isCurrentSession(renderToken) ||
-                latestPhoto.current !== draft.photoUri
-              )
-                return;
-              updateDraft({ photoUri: null });
-              setError(
-                'That image could not be displayed. Choose another photo.',
-              );
-            }}
-          />
-        ) : (
-          <Text accessible={false} style={styles.initials}>
-            TPC
-          </Text>
-        )}
+        <View style={[styles.avatar, shadows.card]}>
+          {activePhotoUri ? (
+            <Image
+              source={{ uri: activePhotoUri }}
+              style={styles.image}
+              resizeMode="cover"
+              accessibilityLabel="Selected profile photo"
+              onError={() => {
+                void saveStoredProfilePhoto(userId, null);
+                setPersistedUri(null);
+                updateDraft({ photoUri: null });
+                setError(
+                  'That image could not be displayed. Choose another photo.',
+                );
+              }}
+            />
+          ) : initials ? (
+            <Text accessible={false} style={styles.initials}>
+              {initials}
+            </Text>
+          ) : (
+            <User size={34} color={palette.goldIcon} strokeWidth={1.8} />
+          )}
+        </View>
+        <View style={[styles.cameraBadge, shadows.card]}>
+          <Camera size={15} color={palette.surface} strokeWidth={2.2} />
+        </View>
       </Pressable>
 
-      <Text style={styles.caption}>Tap to change photo</Text>
+      <Text style={styles.caption}>Tap to update photo</Text>
 
       {showOptions && (
         <View style={styles.options}>
@@ -176,34 +219,50 @@ export default function ProfilePhoto() {
             accessibilityRole="button"
             disabled={busy}
             accessibilityState={{ disabled: busy }}
-            onPress={choosePhoto}
+            onPress={() => void choosePhoto()}
             style={({ pressed }) => [styles.option, pressed && styles.pressed]}
           >
+            <Camera size={17} color={palette.goldText} strokeWidth={2} />
             <Text style={styles.link}>
-              {busy ? 'Opening photos…' : 'Choose photo'}
+              {busy ? 'Opening photos…' : 'Choose from library'}
             </Text>
           </Pressable>
 
-          {draft.photoUri && (
+          {activePhotoUri && (
             <Pressable
               accessibilityRole="button"
               disabled={busy}
               accessibilityState={{ disabled: busy }}
-              onPress={removePhoto}
-              style={styles.option}
+              onPress={() => void removePhoto()}
+              style={({ pressed }) => [
+                styles.option,
+                styles.optionDivider,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.link}>Remove photo</Text>
+              <Trash2 size={17} color={colors.error} strokeWidth={2} />
+              <Text style={styles.removeText}>Remove photo</Text>
             </Pressable>
           )}
 
           <Pressable
             accessibilityRole="button"
             onPress={() => setShowOptions(false)}
-            style={styles.option}
+            style={({ pressed }) => [
+              styles.option,
+              styles.optionDivider,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.link}>Cancel</Text>
+            <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
         </View>
+      )}
+
+      {statusMessage !== '' && (
+        <Text accessibilityLiveRegion="polite" style={styles.success}>
+          {statusMessage}
+        </Text>
       )}
 
       {error !== '' && (
@@ -215,44 +274,96 @@ export default function ProfilePhoto() {
   );
 }
 
-// ===============================================================
-// PROFILE PHOTO STYLES
-// ===============================================================
-
 const styles = StyleSheet.create({
   container: { alignItems: 'center', gap: 8, width: '100%' },
+  avatarWrap: {
+    position: 'relative',
+    width: 94,
+    height: 94,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     overflow: 'hidden',
-    backgroundColor: colors.primary,
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: 2.5,
+    borderColor: palette.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cameraBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: palette.gold,
+    borderWidth: 2,
+    borderColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   image: { width: '100%', height: '100%' },
-  initials: { fontSize: 24, fontWeight: '800', color: colors.onPrimary },
-  caption: { fontSize: 13, lineHeight: 20, color: colors.secondaryText },
+  initials: {
+    fontFamily: fonts.extraBold,
+    fontSize: 26,
+    color: palette.goldText,
+  },
+  caption: {
+    fontFamily: fonts.medium,
+    fontSize: 12.5,
+    color: palette.textSecondary,
+  },
   options: {
     width: '100%',
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 12,
-    padding: 8,
-    backgroundColor: colors.background,
+    borderColor: palette.borderSubtle,
+    borderRadius: radii.md,
+    backgroundColor: palette.surfaceWarm,
+    overflow: 'hidden',
+    marginTop: 4,
   },
   option: {
     minHeight: 48,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    gap: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  link: {
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: '600',
-    color: colors.link,
+  optionDivider: {
+    borderTopWidth: 1,
+    borderTopColor: palette.borderSubtle,
   },
-  pressed: { opacity: 0.65 },
-  error: { fontSize: 14, lineHeight: 21, color: colors.error },
+  link: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14.5,
+    color: palette.goldText,
+  },
+  removeText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14.5,
+    color: colors.error,
+  },
+  cancelText: {
+    fontFamily: fonts.medium,
+    fontSize: 14.5,
+    color: palette.textSecondary,
+  },
+  pressed: { opacity: 0.7 },
+  success: {
+    fontFamily: fonts.medium,
+    fontSize: 13.5,
+    color: colors.success,
+  },
+  error: {
+    fontFamily: fonts.medium,
+    fontSize: 13.5,
+    textAlign: 'center',
+    color: colors.error,
+  },
 });

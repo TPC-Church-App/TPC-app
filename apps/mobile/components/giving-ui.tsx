@@ -1,8 +1,11 @@
 // ===============================================================
-// apps/mobile/components/giving-ui.tsx
-// Shared presentation for Giving and its separate history page.
+// File: apps/mobile/components/giving-ui.tsx
+// Description: Shared Warm Ivory & Gold shells, buttons, chips, and sheets.
+// Author: Josiah Ewumi
 // ===============================================================
 
+import { LinearGradient } from 'expo-linear-gradient';
+import { X } from 'lucide-react-native';
 import type { PropsWithChildren } from 'react';
 import {
   Image,
@@ -15,24 +18,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import MemberMenu from '@/components/member-menu';
 import MemberBackButton from '@/components/member-back-button';
-import { colors } from '@/constants/theme';
+import MemberMenu from '@/components/member-menu';
+import BrandBackdrop from '@/components/ui/brand-backdrop';
+import { colors, fonts, palette, radii, shadows } from '@/constants/theme';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
-
-// ===============================================================
-// SHARED TPC WORDMARK
-// ===============================================================
 
 function GivingBrand({ caption }: { caption: string }) {
   return (
     <View style={givingStyles.brand}>
-      <Image
-        source={require('../assets/light/church-logo.png')}
-        style={givingStyles.logo}
-        resizeMode="contain"
-        accessibilityLabel="The Pentecostal Congregation logo"
-      />
+      <View style={[givingStyles.logoWrap, shadows.card]}>
+        <Image
+          source={require('../assets/light/church-logo-transparent.png')}
+          style={givingStyles.logo}
+          resizeMode="contain"
+          accessibilityLabel="The Pentecostal Congregation logo"
+        />
+      </View>
       <View style={givingStyles.wordmark}>
         <Text style={givingStyles.churchName}>TPC</Text>
         <Text style={givingStyles.eyebrow}>{caption}</Text>
@@ -40,10 +42,6 @@ function GivingBrand({ caption }: { caption: string }) {
     </View>
   );
 }
-
-// ===============================================================
-// BRANDED MEMBER PAGE SHELL
-// ===============================================================
 
 export function GivingPage({
   title,
@@ -56,33 +54,35 @@ export function GivingPage({
   sectionLabel?: string;
 }>) {
   return (
-    <SafeAreaView style={givingStyles.screen} edges={['top', 'left', 'right']}>
-      <ScrollView
-        contentContainerStyle={givingStyles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
+    <BrandBackdrop>
+      <SafeAreaView
+        style={givingStyles.screen}
+        edges={['top', 'left', 'right']}
       >
-        <View style={givingStyles.row}>
-          <MemberBackButton />
-          <View style={givingStyles.brandSlot}>
-            <GivingBrand caption={sectionLabel} />
+        <ScrollView
+          contentContainerStyle={givingStyles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={givingStyles.row}>
+            <MemberBackButton />
+            <View style={givingStyles.brandSlot}>
+              <GivingBrand caption={sectionLabel} />
+            </View>
+            <MemberMenu />
           </View>
-          <MemberMenu />
-        </View>
-        <Text accessibilityRole="header" style={givingStyles.title}>
-          {title}
-        </Text>
-        <Text style={givingStyles.subtitle}>{subtitle}</Text>
-        <View style={givingStyles.stack}>{children}</View>
-      </ScrollView>
-    </SafeAreaView>
+          <Text accessibilityRole="header" style={givingStyles.title}>
+            {title}
+          </Text>
+          <Text style={givingStyles.subtitle}>{subtitle}</Text>
+          <View style={givingStyles.stack}>{children}</View>
+        </ScrollView>
+      </SafeAreaView>
+    </BrandBackdrop>
   );
 }
-
-// ===============================================================
-// ACCESSIBLE ACTION BUTTON
-// ===============================================================
 
 export function GivingButton({
   label,
@@ -95,6 +95,26 @@ export function GivingButton({
   secondary?: boolean;
   disabled?: boolean;
 }) {
+  if (secondary) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityState={{ disabled }}
+        style={({ pressed }) => [
+          givingStyles.button,
+          givingStyles.secondaryButton,
+          shadows.card,
+          disabled && givingStyles.disabled,
+          pressed && givingStyles.pressed,
+        ]}
+      >
+        <Text style={givingStyles.link}>{label}</Text>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -102,22 +122,23 @@ export function GivingButton({
       disabled={disabled}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        givingStyles.button,
-        secondary && givingStyles.secondaryButton,
+        givingStyles.primaryWrap,
+        shadows.card,
         disabled && givingStyles.disabled,
         pressed && givingStyles.pressed,
       ]}
     >
-      <Text style={secondary ? givingStyles.link : givingStyles.buttonText}>
-        {label}
-      </Text>
+      <LinearGradient
+        colors={palette.buttonGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={givingStyles.button}
+      >
+        <Text style={givingStyles.buttonText}>{label}</Text>
+      </LinearGradient>
     </Pressable>
   );
 }
-
-// ===============================================================
-// SELECTABLE OPTION CONTROL
-// ===============================================================
 
 export function GivingChoice({
   label,
@@ -139,14 +160,14 @@ export function GivingChoice({
         pressed && givingStyles.pressed,
       ]}
     >
-      <Text style={givingStyles.link}>{label}</Text>
+      <Text
+        style={[givingStyles.link, selected && { color: palette.textPrimary }]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
-
-// ===============================================================
-// SCROLLABLE MODAL WITH REDUCED MOTION
-// ===============================================================
 
 export function GivingSheet({
   title,
@@ -166,54 +187,70 @@ export function GivingSheet({
       animationType={reducedMotion ? 'none' : 'slide'}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={givingStyles.screen}>
-        <ScrollView contentContainerStyle={givingStyles.content}>
-          <View style={givingStyles.row}>
-            <GivingBrand caption="UI PREVIEW" />
-            <GivingButton label="Close" secondary onPress={onClose} />
-          </View>
-          <Text accessibilityRole="header" style={givingStyles.title}>
-            {title}
-          </Text>
-          <View style={givingStyles.stack}>{children}</View>
-        </ScrollView>
-      </SafeAreaView>
+      <BrandBackdrop>
+        <SafeAreaView style={givingStyles.screen}>
+          <ScrollView contentContainerStyle={givingStyles.content}>
+            <View style={givingStyles.row}>
+              <GivingBrand caption="TPC" />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={onClose}
+                style={({ pressed }) => [
+                  givingStyles.closeCircle,
+                  shadows.card,
+                  pressed && givingStyles.pressed,
+                ]}
+              >
+                <X size={20} color={palette.textPrimary} />
+              </Pressable>
+            </View>
+            <Text accessibilityRole="header" style={givingStyles.title}>
+              {title}
+            </Text>
+            <View style={givingStyles.stack}>{children}</View>
+          </ScrollView>
+        </SafeAreaView>
+      </BrandBackdrop>
     </Modal>
   );
 }
 
-// ===============================================================
-// SHARED MEMBER INTERFACE STYLES
-// ===============================================================
-
 export const givingStyles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
     gap: 10,
   },
-  logo: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  logoWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    backgroundColor: colors.surface,
+    borderColor: palette.borderSubtle,
+    backgroundColor: palette.surface,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
   },
   wordmark: { flexShrink: 1 },
   churchName: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: '800',
-    color: colors.text,
+    fontFamily: fonts.extraBold,
+    fontSize: 17,
+    lineHeight: 22,
+    color: palette.inkNavy,
   },
   content: {
     width: '100%',
-    maxWidth: 680,
+    maxWidth: 520,
     alignSelf: 'center',
-    padding: 24,
+    padding: 20,
     paddingBottom: 32,
   },
   row: {
@@ -221,110 +258,159 @@ export const givingStyles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
   },
   brandSlot: {
     flex: 1,
-    minWidth: 170,
+    minWidth: 150,
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chips: { flexDirection: 'row', gap: 8 },
-  stack: { gap: 20 },
+  stack: { gap: 16 },
   card: {
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
+    borderColor: palette.borderSubtle,
+    borderRadius: radii.lg,
+    backgroundColor: palette.surface,
     gap: 12,
+    ...(shadows.card ?? {}),
   },
-  hero: { backgroundColor: colors.primary, borderColor: colors.primary },
+  hero: {
+    backgroundColor: palette.gold,
+    borderColor: palette.goldDark,
+  },
   title: {
-    fontSize: 30,
-    lineHeight: 39,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 24,
-    marginBottom: 12,
+    fontFamily: fonts.extraBold,
+    fontSize: 27,
+    lineHeight: 34,
+    color: palette.inkNavy,
+    marginTop: 20,
+    marginBottom: 8,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.secondaryText,
-    marginBottom: 24,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    lineHeight: 22,
+    color: palette.textSecondary,
+    marginBottom: 20,
   },
   heading: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: '700',
-    color: colors.text,
+    fontFamily: fonts.bold,
+    fontSize: 18,
+    lineHeight: 24,
+    color: palette.textPrimary,
   },
-  body: { fontSize: 15, lineHeight: 23, color: colors.secondaryText },
-  heroBody: { fontSize: 15, lineHeight: 23, color: colors.onPrimary },
-  caption: { fontSize: 13, lineHeight: 20, color: colors.secondaryText },
+  body: {
+    fontFamily: fonts.regular,
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: palette.textSecondary,
+  },
+  heroBody: {
+    fontFamily: fonts.medium,
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: palette.surface,
+  },
+  caption: {
+    fontFamily: fonts.regular,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: palette.textSecondary,
+  },
   eyebrow: {
-    fontSize: 11,
-    lineHeight: 17,
-    letterSpacing: 1,
-    fontWeight: '700',
-    color: colors.link,
+    fontFamily: fonts.bold,
+    fontSize: 10.5,
+    lineHeight: 15,
+    letterSpacing: 1.1,
+    color: palette.goldText,
   },
   label: {
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: '600',
-    color: colors.text,
+    fontFamily: fonts.semiBold,
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: palette.textPrimary,
   },
   amount: {
-    fontSize: 28,
-    lineHeight: 38,
-    fontWeight: '700',
-    color: colors.text,
+    fontFamily: fonts.extraBold,
+    fontSize: 26,
+    lineHeight: 34,
+    color: palette.textPrimary,
   },
   input: {
-    minHeight: 52,
-    padding: 14,
+    minHeight: 50,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    color: colors.text,
-    fontSize: 16,
+    borderColor: palette.borderInput,
+    borderRadius: radii.md,
+    backgroundColor: palette.surfaceWarm,
+    color: palette.textPrimary,
+    fontFamily: fonts.regular,
+    fontSize: 15,
     letterSpacing: 0,
   },
+  primaryWrap: {
+    borderRadius: radii.pill,
+    overflow: 'hidden',
+  },
   button: {
-    minHeight: 48,
-    paddingHorizontal: 18,
+    minHeight: 50,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    borderRadius: radii.pill,
   },
   secondaryButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: palette.surfaceWarm,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
+    borderColor: palette.borderSubtle,
   },
   buttonText: {
+    fontFamily: fonts.bold,
     fontSize: 15,
-    lineHeight: 23,
-    fontWeight: '600',
-    color: colors.onPrimary,
+    lineHeight: 21,
+    color: palette.surface,
   },
-  link: { fontSize: 15, lineHeight: 23, fontWeight: '600', color: colors.link },
+  link: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: palette.goldText,
+  },
   choice: {
-    minHeight: 44,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    minHeight: 42,
+    paddingVertical: 9,
+    paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    borderRadius: 22,
+    borderColor: palette.borderSubtle,
+    borderRadius: radii.pill,
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: palette.surfaceWarm,
   },
-  selected: { borderColor: colors.link, backgroundColor: colors.background },
-  error: { fontSize: 14, lineHeight: 21, color: colors.error },
-  pressed: { opacity: 0.65 },
+  selected: {
+    borderColor: palette.gold,
+    backgroundColor: palette.surfaceMuted,
+  },
+  closeCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  error: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.error,
+  },
+  pressed: { opacity: 0.72 },
   disabled: { opacity: 0.5 },
 });

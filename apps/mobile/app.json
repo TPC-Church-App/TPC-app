@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "scheme": "tpc",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/light/church-logo-transparent.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF9F0"
+    },
     "android": {
       "package": "com.tpc.church",
       "permissions": [
@@ -17,6 +22,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FDF9F0",
+          "image": "./assets/light/church-logo-transparent.png",
+          "imageWidth": 180
+        }
+      ],
       [
         "expo-camera",
         {

@@ -1,12 +1,14 @@
 // ===============================================================
-// apps/mobile/app/(auth)/otp.tsx
-// Check the development-only demo code and open the Home preview.
-// This screen does not perform real contact authentication.
+// File: apps/mobile/app/(auth)/otp.tsx
+// Description: Development verification code preview in Warm Ivory & Gold UI.
+// Author: Josiah Ewumi
 // ===============================================================
 
 import { router } from 'expo-router';
+import { ChevronLeft, ShieldCheck } from 'lucide-react-native';
 import { useState } from 'react';
 import {
+  Image,
   InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
@@ -21,17 +23,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BrandedLoader from '@/components/branded-loader';
-import { colors } from '@/constants/theme';
+import BrandBackdrop from '@/components/ui/brand-backdrop';
+import GoldButton from '@/components/ui/gold-button';
+import { colors, fonts, palette, radii, shadows } from '@/constants/theme';
 import { useMemberDraft } from '@/store/member-draft';
 import { useDemoTransition } from '@/utils/use-demo-transition';
 
 const CODE_LENGTH = 6;
 const KEYBOARD_TOOLBAR_ID = 'verification-keyboard-toolbar';
-
-// ===============================================================
-// VERIFICATION PREVIEW
-// Enable local preview access only in development mode.
-// ===============================================================
 
 export default function VerificationScreen() {
   const { openDemo } = useMemberDraft();
@@ -41,21 +40,11 @@ export default function VerificationScreen() {
   const [hasError, setHasError] = useState(false);
   const { phase, busy, start } = useDemoTransition();
 
-  // ===============================================================
-  // CODE INPUT
-  // Accept up to six digits and clear outdated feedback on edits.
-  // ===============================================================
-
   function updateCode(value: string) {
     setCode(value.replace(/\D/g, '').slice(0, CODE_LENGTH));
     setFeedback('');
     setHasError(false);
   }
-
-  // ===============================================================
-  // DEVELOPMENT CODE CHECK
-  // Never use this local comparison as real authentication.
-  // ===============================================================
 
   function submitCode() {
     if (busy) return;
@@ -90,190 +79,250 @@ export default function VerificationScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={styles.screen}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+    <BrandBackdrop>
+      <SafeAreaView style={styles.screen}>
+        <KeyboardAvoidingView
+          style={styles.screen}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Text accessibilityRole="header" style={styles.title}>
-            Verify your contact
-          </Text>
-
-          <Text style={styles.description}>
-            {__DEV__
-              ? 'Development preview: enter 123456 to open Home. No verification code has been sent.'
-              : 'Contact verification is not connected in this build.'}
-          </Text>
-
-          <Text style={styles.label}>Verification code</Text>
-
-          <TextInput
-            accessibilityLabel={`${CODE_LENGTH}-digit verification code`}
-            value={code}
-            onChangeText={updateCode}
-            style={[styles.input, hasError && styles.inputError]}
-            placeholder="000000"
-            placeholderTextColor={colors.secondaryText}
-            keyboardType="number-pad"
-            autoCorrect={false}
-            autoCapitalize="none"
-            inputAccessoryViewID={
-              Platform.OS === 'ios' ? KEYBOARD_TOOLBAR_ID : undefined
-            }
-            returnKeyType="done"
-            onSubmitEditing={submitCode}
-          />
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={submitCode}
-            disabled={busy}
-            accessibilityState={{ disabled: busy }}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-            ]}
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
-            <Text style={styles.buttonText}>Enter</Text>
-          </Pressable>
+            <View style={styles.topBar}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                onPress={() =>
+                  router.canGoBack() ? router.back() : router.replace('/')
+                }
+                style={({ pressed }) => [
+                  styles.backBtn,
+                  shadows.card,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ChevronLeft
+                  size={20}
+                  color={palette.textPrimary}
+                  strokeWidth={2.2}
+                />
+              </Pressable>
+            </View>
 
-          {feedback !== '' && (
-            <Text
-              accessibilityRole={hasError ? 'alert' : 'text'}
-              accessibilityLiveRegion="polite"
-              style={[styles.feedback, hasError && styles.errorText]}
-            >
-              {feedback}
+            <View style={styles.brandBlock}>
+              <Image
+                source={require('../../assets/light/church-logo-transparent.png')}
+                style={styles.logo}
+                resizeMode="contain"
+                accessibilityLabel="The Pentecostal Congregation logo"
+              />
+              <Text style={styles.churchName}>
+                The Pentecostal{'\n'}Congregation
+              </Text>
+            </View>
+
+            <View style={styles.badge}>
+              <ShieldCheck size={16} color={palette.goldIcon} strokeWidth={2} />
+              <Text style={styles.badgeText}>Verification Preview</Text>
+            </View>
+
+            <Text accessibilityRole="header" style={styles.title}>
+              Verify Your Contact
             </Text>
-          )}
 
-          <Text style={styles.notice}>
-            This code opens a local development preview only. Real contact
-            verification will be connected during backend integration.
-          </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <Text style={styles.description}>
+              {__DEV__
+                ? 'Development preview: enter 123456 to open Home. No verification code has been sent.'
+                : 'Contact verification is not connected in this build.'}
+            </Text>
 
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={KEYBOARD_TOOLBAR_ID}>
-          <View style={styles.keyboardToolbar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Done, dismiss keyboard"
-              onPress={() => Keyboard.dismiss()}
-              style={styles.keyboardDoneButton}
-            >
-              <Text style={styles.linkText}>Done</Text>
-            </Pressable>
-          </View>
-        </InputAccessoryView>
-      )}
-      <BrandedLoader
-        visible={phase !== 'idle'}
-        success={phase === 'success'}
-        label={
-          phase === 'success' ? 'Demo code accepted' : 'Checking demo code…'
-        }
-      />
-    </SafeAreaView>
+            <TextInput
+              accessibilityLabel={`${CODE_LENGTH}-digit verification code`}
+              value={code}
+              onChangeText={updateCode}
+              style={[styles.input, hasError && styles.inputError]}
+              placeholder="000000"
+              placeholderTextColor={palette.textMuted}
+              keyboardType="number-pad"
+              autoCorrect={false}
+              autoCapitalize="none"
+              inputAccessoryViewID={
+                Platform.OS === 'ios' ? KEYBOARD_TOOLBAR_ID : undefined
+              }
+              returnKeyType="done"
+              onSubmitEditing={submitCode}
+            />
+
+            {feedback !== '' && (
+              <Text
+                accessibilityRole={hasError ? 'alert' : 'text'}
+                accessibilityLiveRegion="polite"
+                style={[styles.feedback, hasError && styles.errorText]}
+              >
+                {feedback}
+              </Text>
+            )}
+
+            <GoldButton
+              label="Verify & Continue"
+              onPress={submitCode}
+              disabled={busy}
+              style={{ marginTop: 18 }}
+            />
+
+            <Text style={styles.notice}>
+              This code opens a local development preview only. Real contact
+              verification connects during OTP provider setup.
+            </Text>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID={KEYBOARD_TOOLBAR_ID}>
+            <View style={styles.keyboardToolbar}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Done, dismiss keyboard"
+                onPress={() => Keyboard.dismiss()}
+                style={styles.keyboardDoneButton}
+              >
+                <Text style={styles.linkText}>Done</Text>
+              </Pressable>
+            </View>
+          </InputAccessoryView>
+        )}
+
+        <BrandedLoader
+          visible={phase !== 'idle'}
+          success={phase === 'success'}
+          label={
+            phase === 'success' ? 'Demo code accepted' : 'Checking demo code…'
+          }
+        />
+      </SafeAreaView>
+    </BrandBackdrop>
   );
 }
-
-// ===============================================================
-// SCREEN STYLES
-// Preserve the church palette and existing keyboard controls.
-// ===============================================================
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     flexGrow: 1,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 32,
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 440,
     alignSelf: 'center',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
+  topBar: {
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandBlock: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  logo: {
+    width: 100,
+    height: 72,
+  },
+  churchName: {
+    marginTop: 6,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    lineHeight: 19,
+    textAlign: 'center',
+    color: palette.inkNavy,
+  },
+  badge: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    backgroundColor: palette.surfaceMuted,
     marginBottom: 12,
   },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.secondaryText,
-    marginBottom: 32,
+  badgeText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 12,
+    color: palette.goldText,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+  title: {
+    fontFamily: fonts.extraBold,
+    fontSize: 27,
+    lineHeight: 33,
+    textAlign: 'center',
+    color: palette.inkNavy,
     marginBottom: 8,
+  },
+  description: {
+    fontFamily: fonts.regular,
+    fontSize: 14.5,
+    lineHeight: 21,
+    textAlign: 'center',
+    color: palette.textSecondary,
+    marginBottom: 24,
   },
   input: {
     minHeight: 64,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    color: colors.text,
+    borderColor: palette.borderInput,
+    borderRadius: radii.lg,
+    backgroundColor: palette.surfaceWarm,
+    color: palette.textPrimary,
+    fontFamily: fonts.bold,
     fontSize: 28,
-    letterSpacing: 8,
+    letterSpacing: 10,
     textAlign: 'center',
   },
   inputError: {
     borderColor: colors.error,
   },
-  button: {
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  buttonPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  buttonText: {
-    color: colors.onPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
   feedback: {
     marginTop: 12,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
+    fontFamily: fonts.medium,
+    fontSize: 13.5,
+    lineHeight: 19,
+    textAlign: 'center',
+    color: palette.textSecondary,
   },
   errorText: {
     color: colors.error,
   },
   notice: {
-    marginTop: 32,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondaryText,
+    marginTop: 24,
+    fontFamily: fonts.regular,
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: palette.textSecondary,
   },
   keyboardToolbar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    backgroundColor: colors.surface,
+    backgroundColor: palette.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: palette.borderSubtle,
     paddingHorizontal: 12,
   },
   keyboardDoneButton: {
@@ -284,8 +333,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   linkText: {
-    color: colors.link,
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semiBold,
+    color: palette.goldText,
+    fontSize: 15,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

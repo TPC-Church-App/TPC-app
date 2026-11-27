@@ -1,25 +1,24 @@
 // ===============================================================
-// apps/mobile/components/member-back-button.tsx
-// Provide a consistent accessible back action for member screens.
+// File: apps/mobile/components/member-back-button.tsx
+// Description: Accessible circular Warm Ivory back button across member screens.
+// Author: Josiah Ewumi
 // ===============================================================
 
 import { router, type Href } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
-import { colors } from '@/constants/theme';
-
-// ===============================================================
-// MEMBER SCREEN BACK ACTION
-// Use navigation history when available and a safe route fallback otherwise.
-// ===============================================================
+import { palette, shadows } from '@/constants/theme';
 
 export default function MemberBackButton({
   fallbackRoute = '/(tabs)/home',
+  preferFallback = false,
 }: {
   fallbackRoute?: Href;
+  preferFallback?: boolean;
 }) {
   function goBack() {
-    if (router.canGoBack()) {
+    if (!preferFallback && router.canGoBack()) {
       router.back();
       return;
     }
@@ -32,38 +31,29 @@ export default function MemberBackButton({
       accessibilityRole="button"
       accessibilityLabel="Go back"
       onPress={goBack}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-      hitSlop={4}
+      style={({ pressed }) => [
+        styles.button,
+        shadows.card,
+        pressed && styles.pressed,
+      ]}
+      hitSlop={8}
     >
-      <Text accessible={false} style={styles.arrow}>
-        ‹
-      </Text>
+      <ChevronLeft size={20} color={palette.textPrimary} strokeWidth={2.2} />
     </Pressable>
   );
 }
 
-// ===============================================================
-// BACK BUTTON STYLES
-// ===============================================================
-
 const styles = StyleSheet.create({
   button: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: colors.decorativeBorder,
-    backgroundColor: colors.surface,
+    borderColor: palette.borderSubtle,
+    backgroundColor: palette.surface,
   },
-  arrow: {
-    marginTop: -3,
-    fontSize: 34,
-    lineHeight: 40,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  pressed: { opacity: 0.65 },
+  pressed: { opacity: 0.7 },
 });

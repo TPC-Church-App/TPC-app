@@ -1,32 +1,35 @@
 // ===============================================================
-// apps/mobile/app/(tabs)/attendance.tsx
-// Combine server QR check-in with clearly labeled attendance previews.
+// File: apps/mobile/app/(tabs)/attendance.tsx
+// Description: Service check-in, live TPC schedule hero card, and attendance queue.
+// Author: Josiah Ewumi
 // ===============================================================
 
-import { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Image, Platform, Text, View } from 'react-native';
+import { Calendar, Clock, MapPin, QrCode } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+
+import BrandedLoader from '@/components/branded-loader';
 import {
-  GivingPage,
   GivingButton,
+  GivingPage,
   GivingSheet,
   givingStyles as ui,
 } from '@/components/giving-ui';
-import BrandedLoader from '@/components/branded-loader';
+import { fonts, palette, radii, shadows } from '@/constants/theme';
+import { useHomeData } from '@/hooks/use-home-data';
 import {
   useAttendanceDraft,
   type AttendanceRecord,
 } from '@/store/attendance-draft';
-import {
-  formatAttendanceStamp,
-  getAttendanceWindow,
-  getCheckInState,
-} from '@/utils/attendance';
+import { formatAttendanceStamp, getAttendanceWindow } from '@/utils/attendance';
 import {
   eligibleWitness,
   queueExpired,
   type Witness,
 } from '@/utils/member-demo';
+
 const labels: Record<AttendanceRecord['state'], string> = {
   queued: 'Queued for demo sync',
   awaitingWitness: 'Witness needed',
@@ -37,11 +40,8 @@ const labels: Record<AttendanceRecord['state'], string> = {
   expired: 'Upload deadline expired',
 };
 
-// ===============================================================
-// SERVICE, HISTORY AND QUEUE STATE
-// ===============================================================
-
 export default function AttendanceScreen() {
+  const { nextService, countdown, formattedServiceDateTime } = useHomeData();
   const {
     service,
     attempt,
@@ -61,22 +61,29 @@ export default function AttendanceScreen() {
   const [notice, setNotice] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [resultId, setResultId] = useState('');
+
   const record = records.find((r) => r.id === selected);
-  const window = getAttendanceWindow(service);
+  const activeServiceStart = nextService?.startsAtMs ?? service.startsAt;
+  const activeServiceEnd = nextService?.endsAtMs ?? service.endsAt;
+  const window = nextService
+    ? {
+        opensAt: nextService.checkInOpensAtMs,
+        closesAt: nextService.checkInClosesAtMs,
+        uploadDeadlineAt: nextService.endsAtMs + 24 * 60 * 60_000,
+      }
+    : getAttendanceWindow(service);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(timer);
   }, []);
+
   function state(r: AttendanceRecord) {
     return !['confirmed', 'rejected'].includes(r.state) &&
       queueExpired(r.uploadDeadlineAt, now)
       ? 'expired'
       : r.state;
   }
-
-  // ===============================================================
-  // DEMO SYNC OUTCOMES
-  // ===============================================================
 
   async function sync(result: 'confirmed' | 'rejected' | 'syncError') {
     if (!record) return;
@@ -95,6 +102,7 @@ export default function AttendanceScreen() {
     );
     setSyncing(false);
   }
+
   const witnesses: Witness[] = record
     ? [
         {
@@ -118,15 +126,11 @@ export default function AttendanceScreen() {
       ]
     : [];
 
-  // ===============================================================
-  // ATTENDANCE AND WITNESS INTERFACE
-  // ===============================================================
-
   return (
     <GivingPage
-      title="Attendance & check-in"
-      subtitle="Scan a service QR for server-confirmed attendance. Manual codes, offline queue and witness flows remain previews."
-      sectionLabel="ATTENDANCE"
+      title="Attendance & Check-in"
+      subtitle="Scan the auditorium QR code during service to confirm your attendance."
+      sectionLabel="CHECK-IN"
     >
       {!ready && !error && (
         <Text style={ui.body}>Loading saved attendance…</Text>
@@ -144,34 +148,75 @@ export default function AttendanceScreen() {
           />
         </>
       )}
-      <View style={[ui.card, ui.hero]}>
-        <Text style={ui.heading}>{service.name}</Text>
-        <Text style={ui.heroBody}>
-          Sample service · {formatAttendanceStamp(service.startsAt)} WAT
-        </Text>
-        <Text style={ui.heroBody}>
-          Ends {formatAttendanceStamp(service.endsAt)} WAT
-        </Text>
-        <Text style={ui.heroBody}>
-          {getCheckInState(service, now) === 'open'
-            ? 'Sample check-in window: open'
-            : 'Sample check-in window: closed'}
-        </Text>
+
+      {/* Gold Service Spotlight Card */}
+      <View style={[styles.heroShadow, shadows.hero]}>
+        <LinearGradient
+          colors={palette.heroGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroHeaderRow}>
+            <Text style={styles.heroEyebrow}>UPCOMING SERVICE</Text>
+            {countdown && (
+              <View style={styles.heroPill}>
+                <Text style={styles.heroPillText}>{countdown.badgeLabel}</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.heroTitle}>
+            {nextService?.title ?? 'Sunday Worship Service'}
+          </Text>
+
+          {!!nextService?.periodLabel && (
+            <Text style={styles.heroPeriod}>{nextService.periodLabel}</Text>
+          )}
+
+          <View style={styles.heroMetaList}>
+            <View style={styles.heroMetaRow}>
+              <Calendar size={15} color="rgba(255,255,255,0.92)" />
+              <Text style={styles.heroMetaText}>
+                {nextService
+                  ? formattedServiceDateTime
+                  : `${formatAttendanceStamp(activeServiceStart)} WAT`}
+              </Text>
+            </View>
+            <View style={styles.heroMetaRow}>
+              <Clock size={15} color="rgba(255,255,255,0.92)" />
+              <Text style={styles.heroMetaText}>
+                Ends {formatAttendanceStamp(activeServiceEnd)} WAT
+              </Text>
+            </View>
+            <View style={styles.heroMetaRow}>
+              <MapPin size={15} color="rgba(255,255,255,0.92)" />
+              <Text style={styles.heroMetaText}>
+                {nextService?.location ?? 'Main Auditorium'}
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
       </View>
+
       <GivingButton
-        label={attempt ? 'View current check-in' : 'Scan service QR'}
+        label={attempt ? 'View Current Check-in' : 'Scan Service QR'}
         disabled={!ready || busy}
         onPress={() =>
           attempt ? setSelected(attempt.id) : router.navigate('/(tabs)/scanner')
         }
       />
       <GivingButton
-        label="Show sample service QR"
+        label="Show Sample Service QR"
         secondary
         onPress={() => setQr(true)}
       />
+
       <View style={ui.card}>
-        <Text style={ui.heading}>Check-in window</Text>
+        <View style={styles.cardIconTitle}>
+          <QrCode size={18} color={palette.goldIcon} />
+          <Text style={ui.heading}>Check-in Window</Text>
+        </View>
         {window && (
           <>
             <Text style={ui.body}>
@@ -181,40 +226,41 @@ export default function AttendanceScreen() {
               Closes: {formatAttendanceStamp(window.closesAt)} WAT
             </Text>
             <Text style={ui.body}>
-              Upload by: {formatAttendanceStamp(window.uploadDeadlineAt)} WAT
+              Offline upload deadline:{' '}
+              {formatAttendanceStamp(window.uploadDeadlineAt)} WAT
             </Text>
           </>
         )}
         <Text style={ui.caption}>
-          30 minutes before service starts through 30 minutes after it ends.
-          Offline evidence has a 24-hour upload limit after service ends.
+          Check-in opens 30 minutes before service starts and closes 30 minutes
+          after it ends.
         </Text>
       </View>
-      <Text style={ui.heading}>Attendance history & offline queue</Text>
+
+      <Text style={ui.heading}>Attendance History & Offline Queue</Text>
       <Text style={ui.body}>
         {Platform.OS === 'web'
-          ? 'Browser reloads keep sample history but discard GPS coordinates. Unuploaded GPS evidence will require a witness.'
-          : 'The native queue survives reloads in encrypted device storage.'}{' '}
-        Sync controls simulate server responses; this app does not upload
-        evidence.
+          ? 'Browser reloads keep sample history without GPS coordinates.'
+          : 'Your native queue persists locally in encrypted device storage.'}
       </Text>
+
       {!records.length && (
         <View style={ui.card}>
           <Text style={ui.heading}>Your attendance journey starts here</Text>
           <Text style={ui.body}>
-            Scan the sample service QR or use the manual demo code. Location is
-            optional. A verified member present at the same service may witness
-            your presence.
+            Scan the service QR when check-in opens, or test the sample QR flow
+            above.
           </Text>
         </View>
       )}
+
       {records.map((r) => (
         <View key={r.id} style={ui.card}>
           <Text style={ui.heading}>{r.serviceName}</Text>
           <Text style={ui.label}>{labels[state(r)]}</Text>
           <Text style={ui.body}>{formatAttendanceStamp(r.scannedAt)} WAT</Text>
           <GivingButton
-            label="View attendance details"
+            label="View Attendance Details"
             secondary
             onPress={() => {
               setSelected(r.id);
@@ -223,6 +269,7 @@ export default function AttendanceScreen() {
           />
         </View>
       ))}
+
       <GivingButton
         label="Start another sample service"
         secondary
@@ -232,8 +279,9 @@ export default function AttendanceScreen() {
           setNow(Date.now());
         }}
       />
+
       <GivingSheet
-        title="Sample service QR"
+        title="Sample Service QR"
         visible={qr}
         onClose={() => setQr(false)}
       >
@@ -248,12 +296,13 @@ export default function AttendanceScreen() {
           accessibilityLabel="Public TPC demo service QR code"
         />
         <Text style={ui.body}>
-          Open this QR on another screen to scan it, or use the manual sample
-          code in the scanner. This cannot confirm real presence.
+          Open this QR on another screen to scan it with the QR scanner. This
+          sample pass is for preview testing only.
         </Text>
       </GivingSheet>
+
       <GivingSheet
-        title="Attendance details"
+        title="Attendance Details"
         visible={!!record}
         onClose={() => {
           if (!syncing) {
@@ -277,7 +326,7 @@ export default function AttendanceScreen() {
             </Text>
             <Text style={ui.body}>
               {record.location
-                ? 'Location and device timestamp captured with permission. These are evidence, not proof.'
+                ? 'Location and device timestamp captured with permission.'
                 : record.witnessId
                   ? 'Sample witness confirmation retained.'
                   : 'No location evidence retained.'}
@@ -286,7 +335,7 @@ export default function AttendanceScreen() {
               <>
                 <Text style={ui.body}>
                   Ask a verified member who attended this service to confirm
-                  your presence. No usher or admin approval is required.
+                  your presence.
                 </Text>
                 <GivingButton
                   label="Prepare witness request (demo)"
@@ -300,10 +349,6 @@ export default function AttendanceScreen() {
             {state(record) === 'witnessRequested' && (
               <>
                 <Text style={ui.heading}>Witness confirmation</Text>
-                <Text style={ui.body}>
-                  Preview the response from another member. Nobody will be
-                  contacted. Only the eligible sample witness can confirm.
-                </Text>
                 {witnesses.map((w) => (
                   <GivingButton
                     key={w.id}
@@ -322,8 +367,7 @@ export default function AttendanceScreen() {
             {['queued', 'syncError'].includes(state(record)) && (
               <>
                 <Text style={ui.caption}>
-                  Simulate upload and server response (Demo only - Coming in
-                  V2):
+                  Simulate upload and server response (Demo preview):
                 </Text>
                 <GivingButton
                   label="Preview confirmed attendance"
@@ -363,20 +407,17 @@ export default function AttendanceScreen() {
             {state(record) === 'rejected' && (
               <Text style={ui.body}>
                 Sample reason: the evidence could not confirm presence at this
-                service. Review your scan time and evidence. No real attendance
-                record has been rejected.
+                service.
               </Text>
             )}
             {state(record) === 'expired' && (
               <Text style={ui.body}>
-                The 24-hour upload deadline has passed. This evidence cannot be
-                submitted through the demo sync controls.
+                The 24-hour upload deadline has passed.
               </Text>
             )}
             {state(record) === 'confirmed' && (
               <Text style={ui.body}>
-                Your demo result has been saved in history. Production
-                confirmation must come from the attendance server.
+                Your demo result has been saved in history.
               </Text>
             )}
           </>
@@ -415,3 +456,67 @@ export default function AttendanceScreen() {
     </GivingPage>
   );
 }
+
+const styles = StyleSheet.create({
+  heroShadow: {
+    borderRadius: radii.hero,
+  },
+  heroCard: {
+    borderRadius: radii.hero,
+    padding: 20,
+    gap: 8,
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  heroEyebrow: {
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
+    letterSpacing: 1.1,
+    color: 'rgba(255,255,255,0.88)',
+  },
+  heroPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  heroPillText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
+    color: palette.surface,
+  },
+  heroTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 23,
+    lineHeight: 29,
+    color: palette.surface,
+  },
+  heroPeriod: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.86)',
+  },
+  heroMetaList: {
+    marginTop: 6,
+    gap: 5,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroMetaText: {
+    fontFamily: fonts.medium,
+    fontSize: 13.5,
+    color: 'rgba(255,255,255,0.95)',
+  },
+  cardIconTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+});
