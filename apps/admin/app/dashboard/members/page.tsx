@@ -55,7 +55,12 @@ export default async function MembersPage() {
                 </td>
                 <td className="p-4">
                   {/* Replace the button with the interactive dropdown */}
-                  <RoleSelector userId={member.id} currentRole={member.role} />
+                  // apps/admin/app/dashboard/members/page.tsx
+                <RoleSelector 
+                userId={member.id} 
+                currentRole={member.role} 
+                memberName={member.full_name || 'Unknown Member'} 
+                />
                 </td>
               </tr>
             ))}

@@ -5,15 +5,18 @@ import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
-export default function RoleSelector({ userId, currentRole }: { userId: string, currentRole: string }) {
+export default function RoleSelector({ userId, currentRole, memberName }: { userId: string, currentRole: string, memberName: string }) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value
+    if (newRole === currentRole) return // Don't log if it hasn't changed
+
     setLoading(true)
 
+    // 1. Update the role
     const { error } = await supabase
       .from('profiles')
       .update({ role: newRole })
@@ -21,10 +24,21 @@ export default function RoleSelector({ userId, currentRole }: { userId: string, 
 
     if (error) {
       alert('Error updating role: ' + error.message)
-    } else {
-      // Refresh the page to show the new role and update the sidebar if needed
-      router.refresh()
+      setLoading(false)
+      return
     }
+
+    // 2. Log the action
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'ROLE_CHANGE',
+        details: `Changed ${memberName}'s role from ${currentRole} to ${newRole}`
+      })
+    }
+
+    router.refresh()
     setLoading(false)
   }
 
