@@ -2,8 +2,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LogOut, Users, Calendar, DollarSign, Settings, Megaphone } from 'lucide-react'
-
+import { LogOut, Users, Calendar, DollarSign, Settings, Megaphone, CalendarDays } from 'lucide-react'
 export default async function DashboardLayout({
   children,
 }: {
@@ -57,6 +56,12 @@ export default async function DashboardLayout({
               <DollarSign size={20} className="text-[#C9A24A]" /> Offerings
             </Link>
           )}
+
+          {['super_admin', 'pastor', 'usher'].includes(role) && (
+            <Link href="/dashboard/services" className="flex items-center gap-3 p-3 rounded hover:bg-gray-800 transition">
+              <CalendarDays size={20} className="text-[#C9A24A]" /> Services
+            </Link>
+        )}
 
           {role === 'super_admin' && (
             <Link href="/dashboard/settings" className="flex items-center gap-3 p-3 rounded hover:bg-gray-800 transition">
