@@ -9,6 +9,8 @@ supabase/functions/.env
 *.key
 *.p12
 *.pfx
+.env.local
+.env.*.local
 
 # ==================================================
 # DEPENDENCIES
