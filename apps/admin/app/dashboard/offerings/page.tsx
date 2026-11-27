@@ -1,11 +1,10 @@
-// apps/admin/app/dashboard/offerings/page.tsx
 import { createClient } from '@/utils/supabase/server';
 import { DollarSign, Download } from 'lucide-react';
+import OfferingsTable from './_components/OfferingsTable';
 
 export default async function OfferingsPage() {
   const supabase = await createClient();
 
-  // Fetch offerings and join with the member's profile and the fund name
   const { data: offerings, error } = await supabase
     .from('offerings')
     .select(
@@ -29,105 +28,48 @@ export default async function OfferingsPage() {
     );
   }
 
-  // Calculate total
   const total =
     offerings
       ?.filter((o) => o.status === 'successful')
       .reduce((sum, o) => sum + Number(o.amount), 0) || 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="animate-fade-in-up space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">
-            Offerings & Giving
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+            Offerings &amp; Giving
           </h2>
           <p className="text-sm text-gray-500">
             View all member contributions and Paystack transactions.
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition">
-          <Download size={18} />
+        <button className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-[#C9A24A]/40 hover:text-[#8A6A00] hover:shadow-card">
+          <Download size={16} />
           Export CSV
         </button>
       </div>
 
-      {/* SUMMARY CARD */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 w-full md:w-1/2">
-        <div className="p-4 bg-green-50 text-green-600 rounded-full">
-          <DollarSign size={24} />
-        </div>
-        <div>
-          <p className="text-sm text-gray-500 font-medium">
-            Total Successful Giving
-          </p>
-          <h3 className="text-2xl font-bold text-gray-900">
-            ₦{total.toLocaleString('en-NG')}
-          </h3>
+      {/* Summary card */}
+      <div className="relative w-full overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-card md:w-1/2">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#1E7A3E]/10 blur-2xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E6F4EA] text-[#1E7A3E]">
+            <DollarSign size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+              Total Successful Giving
+            </p>
+            <h3 className="mt-1 text-2xl font-bold text-gray-900">
+              ₦{total.toLocaleString('en-NG')}
+            </h3>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 text-gray-600 text-sm border-b">
-              <th className="p-4 font-medium">Date</th>
-              <th className="p-4 font-medium">Member</th>
-              <th className="p-4 font-medium">Fund</th>
-              <th className="p-4 font-medium">Amount</th>
-              <th className="p-4 font-medium">Status</th>
-              <th className="p-4 font-medium">Reference</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {offerings?.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-gray-500">
-                  No offerings recorded yet.
-                </td>
-              </tr>
-            )}
-            {offerings?.map((offering) => (
-              <tr key={offering.id} className="hover:bg-gray-50 transition">
-                <td className="p-4 text-gray-600 whitespace-nowrap">
-                  {new Date(offering.created_at).toLocaleDateString('en-NG', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </td>
-                <td className="p-4 font-medium text-gray-900">
-                  {/* Handle the joined profile object */}
-                  {(offering.profiles as any)?.full_name || 'Unknown Member'}
-                </td>
-                <td className="p-4 text-gray-600">
-                  {(offering.funds as any)?.name || 'General'}
-                </td>
-                <td className="p-4 font-bold text-gray-900">
-                  ₦{Number(offering.amount).toLocaleString('en-NG')}
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase
-                    ${
-                      offering.status === 'successful'
-                        ? 'bg-green-100 text-green-700'
-                        : offering.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {offering.status}
-                  </span>
-                </td>
-                <td className="p-4 text-sm text-gray-500 font-mono">
-                  {offering.reference.split('-')[0]}...
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <OfferingsTable offerings={offerings ?? []} />
     </div>
   );
 }

@@ -1,9 +1,9 @@
-// apps/admin/app/dashboard/members/role-selector.tsx
 'use client';
 
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
 export default function RoleSelector({
   userId,
@@ -20,11 +20,10 @@ export default function RoleSelector({
 
   const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
-    if (newRole === currentRole) return; // Don't log if it hasn't changed
+    if (newRole === currentRole) return;
 
     setLoading(true);
 
-    // 1. Update the role
     const { error } = await supabase
       .from('profiles')
       .update({ role: newRole })
@@ -36,7 +35,6 @@ export default function RoleSelector({
       return;
     }
 
-    // 2. Log the action
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -53,17 +51,36 @@ export default function RoleSelector({
   };
 
   return (
-    <select
-      disabled={loading}
-      value={currentRole}
-      onChange={handleRoleChange}
-      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#C9A24A] focus:border-[#C9A24A] block w-full p-2"
-    >
-      <option value="member">Member</option>
-      <option value="usher">Usher</option>
-      <option value="finance">Finance</option>
-      <option value="pastor">Pastor</option>
-      <option value="super_admin">Super Admin</option>
-    </select>
+    <div className="relative">
+      <select
+        disabled={loading}
+        value={currentRole}
+        onChange={handleRoleChange}
+        className="w-full cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-9 text-sm font-medium text-gray-700 shadow-sm transition hover:border-[#C9A24A]/40 focus:border-[#C9A24A] focus:outline-none focus:ring-2 focus:ring-[#C9A24A]/25 disabled:cursor-wait disabled:opacity-60"
+      >
+        <option value="member">Member</option>
+        <option value="usher">Usher</option>
+        <option value="finance">Finance</option>
+        <option value="pastor">Pastor</option>
+        <option value="super_admin">Super Admin</option>
+      </select>
+
+      {/* Chevron / loading indicator on the right */}
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+        {loading ? (
+          <Loader2 size={14} className="animate-spin text-[#B08E3E]" />
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M3 4.5L6 7.5L9 4.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+    </div>
   );
 }

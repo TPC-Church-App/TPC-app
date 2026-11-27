@@ -64,8 +64,10 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg
            bg-gradient-to-r from-[#C9A24A] to-[#B08E3E]
            px-5 py-2.5 text-sm font-semibold text-[#1F1F1F]
-           shadow-gold-sm transition
-           hover:-translate-y-0.5 hover:shadow-gold
+           transition
+           shadow-[0_4px_12px_rgba(201,162,74,0.20)]
+           hover:-translate-y-0.5
+           hover:shadow-[0_8px_24px_rgba(201,162,74,0.25)]
            active:translate-y-0
            disabled:cursor-not-allowed disabled:opacity-60;
   }
