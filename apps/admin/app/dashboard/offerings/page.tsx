@@ -1,14 +1,15 @@
 // apps/admin/app/dashboard/offerings/page.tsx
-import { createClient } from '@/utils/supabase/server'
-import { DollarSign, Download } from 'lucide-react'
+import { createClient } from '@/utils/supabase/server';
+import { DollarSign, Download } from 'lucide-react';
 
 export default async function OfferingsPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Fetch offerings and join with the member's profile and the fund name
   const { data: offerings, error } = await supabase
     .from('offerings')
-    .select(`
+    .select(
+      `
       id,
       amount,
       status,
@@ -16,24 +17,34 @@ export default async function OfferingsPage() {
       reference,
       profiles ( full_name ),
       funds ( name )
-    `)
-    .order('created_at', { ascending: false })
+    `,
+    )
+    .order('created_at', { ascending: false });
 
   if (error) {
-    return <div className="text-red-500">Error loading offerings: {error.message}</div>
+    return (
+      <div className="text-red-500">
+        Error loading offerings: {error.message}
+      </div>
+    );
   }
 
   // Calculate total
-  const total = offerings
-    ?.filter(o => o.status === 'successful')
-    .reduce((sum, o) => sum + Number(o.amount), 0) || 0
+  const total =
+    offerings
+      ?.filter((o) => o.status === 'successful')
+      .reduce((sum, o) => sum + Number(o.amount), 0) || 0;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Offerings & Giving</h2>
-          <p className="text-sm text-gray-500">View all member contributions and Paystack transactions.</p>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Offerings & Giving
+          </h2>
+          <p className="text-sm text-gray-500">
+            View all member contributions and Paystack transactions.
+          </p>
         </div>
         <button className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition">
           <Download size={18} />
@@ -47,7 +58,9 @@ export default async function OfferingsPage() {
           <DollarSign size={24} />
         </div>
         <div>
-          <p className="text-sm text-gray-500 font-medium">Total Successful Giving</p>
+          <p className="text-sm text-gray-500 font-medium">
+            Total Successful Giving
+          </p>
           <h3 className="text-2xl font-bold text-gray-900">
             ₦{total.toLocaleString('en-NG')}
           </h3>
@@ -78,7 +91,9 @@ export default async function OfferingsPage() {
               <tr key={offering.id} className="hover:bg-gray-50 transition">
                 <td className="p-4 text-gray-600 whitespace-nowrap">
                   {new Date(offering.created_at).toLocaleDateString('en-NG', {
-                    month: 'short', day: 'numeric', year: 'numeric'
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
                   })}
                 </td>
                 <td className="p-4 font-medium text-gray-900">
@@ -92,10 +107,16 @@ export default async function OfferingsPage() {
                   ₦{Number(offering.amount).toLocaleString('en-NG')}
                 </td>
                 <td className="p-4">
-                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase
-                    ${offering.status === 'successful' ? 'bg-green-100 text-green-700' : 
-                      offering.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                      'bg-red-100 text-red-700'}`}>
+                  <span
+                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase
+                    ${
+                      offering.status === 'successful'
+                        ? 'bg-green-100 text-green-700'
+                        : offering.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-red-100 text-red-700'
+                    }`}
+                  >
                     {offering.status}
                   </span>
                 </td>
@@ -108,5 +129,5 @@ export default async function OfferingsPage() {
         </table>
       </div>
     </div>
-  )
+  );
 }

@@ -1,3 +1,77 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #fff8ec;
+    --foreground: #1f1f1f;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #fff8ec;
+    color: #1f1f1f;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  ::selection {
+    background-color: rgba(201, 162, 74, 0.25);
+    color: #1f1f1f;
+  }
+
+  /* Elegant gold scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(201, 162, 74, 0.4) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(201, 162, 74, 0.35);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(201, 162, 74, 0.6);
+  }
+
+  *:focus-visible {
+    outline: 2px solid #c9a24a;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Reusable premium input */
+  .input-field {
+    @apply w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900
+           placeholder-gray-400 transition
+           focus:border-[#C9A24A] focus:outline-none focus:ring-2 focus:ring-[#C9A24A]/30;
+  }
+
+  /* Reusable gold gradient button */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg
+           bg-gradient-to-r from-[#C9A24A] to-[#B08E3E]
+           px-5 py-2.5 text-sm font-semibold text-[#1F1F1F]
+           shadow-gold-sm transition
+           hover:-translate-y-0.5 hover:shadow-gold
+           active:translate-y-0
+           disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  /* Soft pill badge helpers */
+  .pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+}
