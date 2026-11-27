@@ -1,10 +1,22 @@
-// ===============================================================
-// apps/admin/app/layout.tsx
-// Root website layout.
-// Status: Structure placeholder; no component implemented.
-// ===============================================================
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-// ===============================================================
-// IMPLEMENTATION PENDING
-// Add the component and its behavior during frontend development.
-// ===============================================================
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "TPC Admin",
+  description: "Admin portal for The Pentecostal Congregation",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
+    </html>
+  );
+}
