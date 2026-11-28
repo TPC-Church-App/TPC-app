@@ -1,7 +1,8 @@
+// apps/admin/app/dashboard/_components/PageHeader.tsx
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Bell } from 'lucide-react';
+import { Search, Bell, Menu } from 'lucide-react';
 import { useState } from 'react';
 
 export default function PageHeader({
@@ -43,16 +44,20 @@ export default function PageHeader({
 
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200/70 bg-white/80 backdrop-blur-md">
-      <div className="flex items-center justify-between px-6 py-4">
-        {/* LEFT: Dynamic Page Title */}
-        <div className="w-1/3">
-          <h1 className="text-xl font-bold text-gray-800 tracking-tight">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4">
+        {/* LEFT: Title */}
+        <div className="flex items-center gap-3">
+          {/* Mobile Menu Icon (Placeholder) */}
+          <button className="md:hidden p-2 text-gray-600">
+            <Menu size={20} />
+          </button>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-800 tracking-tight truncate">
             {getPageTitle()}
           </h1>
         </div>
 
-        {/* MIDDLE: Global Search */}
-        <div className="relative max-w-md flex-1 hidden md:block">
+        {/* MIDDLE: Search (Hidden on mobile) */}
+        <div className="relative max-w-md flex-1 hidden md:block mx-4">
           <form onSubmit={handleSearch}>
             <Search
               size={16}
@@ -69,23 +74,21 @@ export default function PageHeader({
         </div>
 
         {/* RIGHT: Notifications & User Chip */}
-        <div className="flex w-1/3 items-center justify-end gap-4">
-          {/* Notification Bell */}
+        <div className="flex items-center gap-2 sm:gap-4">
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative rounded-full border border-gray-200 bg-white p-2.5 text-gray-500 transition hover:border-[#C9A24A]/40 hover:text-[#C9A24A] hover:shadow-sm"
+              className="relative rounded-full border border-gray-200 bg-white p-2 text-gray-500 transition hover:border-[#C9A24A]/40 hover:text-[#C9A24A]"
             >
               <Bell size={18} />
               {recentAnnouncements.length > 0 && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#C9A24A] ring-2 ring-white" />
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#C9A24A] ring-2 ring-white" />
               )}
             </button>
 
-            {/* Notification Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden z-50">
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden z-50">
                 <div className="p-3 border-b border-gray-100 bg-gray-50">
                   <p className="text-sm font-semibold text-gray-800">
                     Recent Announcements
@@ -124,12 +127,12 @@ export default function PageHeader({
             )}
           </div>
 
-          {/* User Chip */}
-          <div className="flex items-center gap-3 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-4 shadow-sm">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gold-gradient text-sm font-bold text-[#1F1F1F]">
+          {/* User Chip (Initials only on mobile) */}
+          <div className="flex items-center gap-2 sm:gap-3 rounded-full border border-gray-200 bg-white p-1 sm:py-1.5 sm:pl-1.5 sm:pr-4 shadow-sm">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gold-gradient text-xs sm:text-sm font-bold text-[#1F1F1F]">
               {initials}
             </div>
-            <div className="hidden text-left sm:block">
+            <div className="hidden sm:block text-left">
               <p className="text-sm font-semibold leading-tight text-gray-800">
                 {fullName}
               </p>

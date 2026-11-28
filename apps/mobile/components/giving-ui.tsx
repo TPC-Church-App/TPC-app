@@ -4,6 +4,7 @@
 // Author: Josiah Ewumi
 // ===============================================================
 
+import React from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import type { PropsWithChildren } from 'react';
@@ -77,7 +78,11 @@ export function GivingPage({
             {title}
           </Text>
           <Text style={givingStyles.subtitle}>{subtitle}</Text>
-          <View style={givingStyles.stack}>{children}</View>
+
+          {/* FIXED: Using React.Children.toArray to prevent crash on whitespace text nodes */}
+          <View style={givingStyles.stack}>
+            {React.Children.toArray(children)}
+          </View>
         </ScrollView>
       </SafeAreaView>
     </BrandBackdrop>
@@ -208,7 +213,9 @@ export function GivingSheet({
             <Text accessibilityRole="header" style={givingStyles.title}>
               {title}
             </Text>
-            <View style={givingStyles.stack}>{children}</View>
+            <View style={givingStyles.stack}>
+              {React.Children.toArray(children)}
+            </View>
           </ScrollView>
         </SafeAreaView>
       </BrandBackdrop>

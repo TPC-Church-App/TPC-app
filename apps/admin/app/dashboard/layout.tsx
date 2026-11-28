@@ -76,6 +76,8 @@ export default async function DashboardLayout({
           </div>
         </div>
 
+        {/* Navigation */}
+
         <nav className="relative flex-1 space-y-1 overflow-y-auto px-3 py-4">
           <SidebarLink
             href="/dashboard"
@@ -83,6 +85,7 @@ export default async function DashboardLayout({
             label="Overview"
             exact
           />
+
           {['super_admin', 'pastor', 'usher'].includes(role) && (
             <SidebarLink
               href="/dashboard/members"
@@ -90,6 +93,7 @@ export default async function DashboardLayout({
               label="Members"
             />
           )}
+
           {['super_admin', 'pastor'].includes(role) && (
             <SidebarLink
               href="/dashboard/announcements"
@@ -97,6 +101,7 @@ export default async function DashboardLayout({
               label="Announcements"
             />
           )}
+
           {['super_admin', 'pastor', 'finance'].includes(role) && (
             <SidebarLink
               href="/dashboard/offerings"
@@ -104,6 +109,7 @@ export default async function DashboardLayout({
               label="Offerings"
             />
           )}
+
           {['super_admin', 'pastor', 'usher'].includes(role) && (
             <SidebarLink
               href="/dashboard/services"
@@ -111,6 +117,7 @@ export default async function DashboardLayout({
               label="Services"
             />
           )}
+
           {role === 'super_admin' && (
             <SidebarLink
               href="/dashboard/settings"
@@ -118,6 +125,7 @@ export default async function DashboardLayout({
               label="Settings"
             />
           )}
+
           {role === 'super_admin' && (
             <SidebarLink
               href="/dashboard/audit-logs"

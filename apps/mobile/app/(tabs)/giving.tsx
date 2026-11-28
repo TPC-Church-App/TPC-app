@@ -5,7 +5,6 @@
 // ===============================================================
 import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import * as ExpoLinking from 'expo-linking';
 import {
   Keyboard,
   Platform,
@@ -37,9 +36,6 @@ import {
 
 const QUICK_AMOUNTS = [MIN_GIVING_NAIRA, 1000, 2000, 5000, 10000];
 
-// ===============================================================
-// LIVE FUND AND PAYMENT SELECTION TYPES
-// ===============================================================
 type ActiveFund = {
   id: string;
   name: string;
@@ -79,9 +75,6 @@ export default function GivingScreen() {
   const [paymentNotice, setPaymentNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ===============================================================
-  // LOAD ONLY FUNDS THAT THE CHURCH HAS ACTIVATED
-  // ===============================================================
   const loadFunds = useCallback(async () => {
     setFundsLoading(true);
     try {
@@ -102,9 +95,8 @@ export default function GivingScreen() {
           typeof fund.id !== 'string' ||
           typeof fund.name !== 'string' ||
           fund.is_active !== true
-        ) {
+        )
           return [];
-        }
         return [
           {
             id: fund.id,
@@ -146,10 +138,6 @@ export default function GivingScreen() {
       )
     : [];
 
-  // ===============================================================
-  // ASK THE SERVER TO CONFIRM THE PAYMENT OUTCOME
-  // Browser return state never proves that a payment succeeded.
-  // ===============================================================
   async function checkPaymentStatus(reference: string) {
     try {
       const { data, error: verifyError } = await supabase.functions.invoke(
@@ -168,9 +156,7 @@ export default function GivingScreen() {
         return;
       }
       setPaymentNotice(getPaymentStatusMessage(status));
-      if (status === 'successful') {
-        router.navigate('/(tabs)/history');
-      }
+      if (status === 'successful') router.navigate('/(tabs)/history');
     } catch {
       setPaymentNotice(
         'We could not check the payment status. Check your connection.',
@@ -180,10 +166,6 @@ export default function GivingScreen() {
     }
   }
 
-  // ===============================================================
-  // CREATE A SERVER-OWNED PAYMENT AND OPEN PAYSTACK CHECKOUT
-  // Paystack's callback supplies only a reference; verify it with the server.
-  // ===============================================================
   async function handleGive() {
     Keyboard.dismiss();
     const fund = funds.find((f) => f.id === fundId);
@@ -216,43 +198,11 @@ export default function GivingScreen() {
 
       setPendingReference(checkout.reference);
       setPaymentNotice(
-        'Complete checkout in your browser, return here, then check the payment status.',
+        'Complete checkout in your browser, then return here and click "Check Status".',
       );
-      const returnUrl = ExpoLinking.createURL('payment-return');
-      if (Platform.OS === 'web' || !returnUrl.startsWith('tpc://')) {
-        await WebBrowser.openBrowserAsync(checkout.authorizationUrl);
-        setPaymentNotice(
-          'Checkout opened. Return to TPC and check the server status when you are done.',
-        );
-        setLoading(false);
-        return;
-      }
 
-      const browserResult = await WebBrowser.openAuthSessionAsync(
-        checkout.authorizationUrl,
-        returnUrl,
-      );
-      if (browserResult.type === 'success' && 'url' in browserResult) {
-        const returnedReference = new URL(browserResult.url).searchParams.get(
-          'reference',
-        );
-        if (returnedReference !== checkout.reference) {
-          setPaymentNotice(
-            'The return reference did not match this checkout. Check the payment status with the server.',
-          );
-          setLoading(false);
-          return;
-        }
-        router.replace({
-          pathname: '/(tabs)/payment-return',
-          params: { reference: returnedReference },
-        });
-        return;
-      }
-
-      setPaymentNotice(
-        'Checkout was closed. Check the server status before starting another gift.',
-      );
+      // Simplified browser opening
+      await WebBrowser.openBrowserAsync(checkout.authorizationUrl);
       setLoading(false);
     } catch {
       setError(
@@ -285,13 +235,12 @@ export default function GivingScreen() {
               : getGivingOptionId(fund.name) === option.id,
           );
           const selected = categoryId === option.id;
-          const loadingFunds = fundsLoading;
           return (
             <Pressable
               key={option.id}
               accessibilityRole="button"
-              accessibilityState={{ selected, disabled: loadingFunds }}
-              disabled={loadingFunds}
+              accessibilityState={{ selected, disabled: fundsLoading }}
+              disabled={fundsLoading}
               onPress={() => {
                 setCategoryId(option.id);
                 setFundId(
@@ -302,7 +251,7 @@ export default function GivingScreen() {
               style={({ pressed }) => [
                 ui.choice,
                 selected && ui.selected,
-                loadingFunds && ui.disabled,
+                fundsLoading && ui.disabled,
                 pressed && ui.pressed,
               ]}
             >
