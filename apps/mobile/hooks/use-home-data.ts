@@ -355,8 +355,11 @@ export function useHomeData() {
       void loadData(false);
     });
 
+    // FIXED: Unique channel name to prevent StrictMode double-subscribe crash
+    const channelName = `tpc-home-live-sync-${Math.random().toString(36).substring(7)}`;
+
     const channel = supabase
-      .channel('tpc-home-live-sync')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'services' },
@@ -396,7 +399,6 @@ export function useHomeData() {
     const live = resolveNextService(services, schedules, nowMs);
     if (live) return live;
 
-    // Fallback to TPC's confirmed recurring Sunday & Wednesday timetable
     const defaultSchedule = resolveNextService(
       [],
       DEFAULT_TPC_SCHEDULES,
